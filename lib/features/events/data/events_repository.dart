@@ -92,6 +92,15 @@ class EventsRepository {
 
   final SupabaseClient _client;
 
+  Future<Event> fetchEventById(String eventId) async {
+    final row = await _client
+        .from('events')
+        .select()
+        .eq('id', eventId)
+        .single();
+    return Event.fromMap(row);
+  }
+
   /// Espelha `fetchEventsAction`: admin vê tudo (incl. rascunhos); os
   /// restantes veem apenas eventos publicados + onde estão escalados.
   Future<List<Event>> fetchEvents(String orgId) async {

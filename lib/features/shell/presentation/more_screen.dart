@@ -3,9 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/state/org_store.dart';
-import '../../../shared/widgets/coming_soon_screen.dart';
 import '../../members/presentation/members_list_screen.dart';
 import '../../ministries/presentation/ministries_list_screen.dart';
+import '../../notifications/presentation/notifications_providers.dart';
+import '../../notifications/presentation/notifications_screen.dart';
 import '../../settings/presentation/settings_screen.dart';
 
 /// Hub "Mais": acesso às secções que não cabem na bottom nav (Ministérios,
@@ -60,18 +61,46 @@ class MoreScreen extends ConsumerWidget {
                     ),
                   ),
                   const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.notifications_outlined),
-                    title: const Text('Notificações'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const ComingSoonScreen(
-                          title: 'Notificações',
-                          icon: Icons.notifications_outlined,
+                  Consumer(
+                    builder: (context, ref, _) {
+                      final unread = ref.watch(
+                        unreadNotificationsCountProvider,
+                      );
+                      return ListTile(
+                        leading: const Icon(Icons.notifications_outlined),
+                        title: const Text('Notificações'),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            if (unread > 0)
+                              Container(
+                                margin: const EdgeInsets.only(right: 8),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 8,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.error,
+                                  borderRadius: BorderRadius.circular(999),
+                                ),
+                                child: Text(
+                                  '$unread',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ),
+                            const Icon(Icons.chevron_right),
+                          ],
                         ),
-                      ),
-                    ),
+                        onTap: () => Navigator.of(context).push(
+                          MaterialPageRoute(
+                            builder: (context) => const NotificationsScreen(),
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const Divider(height: 1),
                   ListTile(
