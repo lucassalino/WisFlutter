@@ -1,13 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 import 'package:share_plus/share_plus.dart';
 
+import '../../../shared/data/storage_repository.dart';
 import '../../../shared/state/org_store.dart';
 import '../../../shared/state/refresh_tick.dart';
+import '../../../shared/utils/image_picker_helper.dart';
 import '../../auth/data/auth_repository.dart';
 import '../../onboarding/data/organizations_repository.dart';
 import '../../onboarding/domain/membership_role.dart';
+import '../../onboarding/domain/organization.dart';
 import '../../profile/data/profile_repository.dart';
 
 class SettingsScreen extends ConsumerStatefulWidget {
@@ -22,9 +26,12 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
   final _phoneController = TextEditingController();
   final _orgNameController = TextEditingController();
   DateTime? _birthday;
+  String? _avatarUrl;
   bool _profileLoading = true;
   bool _savingProfile = false;
   bool _savingOrg = false;
+  bool _uploadingAvatar = false;
+  bool _uploadingLogo = false;
 
   @override
   void initState() {
@@ -41,8 +48,76 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
       _nameController.text = profile.fullName;
       _phoneController.text = profile.phone ?? '';
       _birthday = profile.birthday;
+      _avatarUrl = profile.avatarUrl;
       _profileLoading = false;
     });
+  }
+
+  Future<void> _changeAvatar() async {
+    final file = await pickAndCropImage(
+      context,
+      preset: CropAspectRatioPreset.square,
+    );
+    if (file == null) return;
+    setState(() => _uploadingAvatar = true);
+    try {
+      final url = await ref
+          .read(storageRepositoryProvider)
+          .uploadAvatarPhoto(file);
+      await ref.read(profileRepositoryProvider).updateAvatarUrl(url);
+      if (mounted) setState(() => _avatarUrl = url);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível atualizar a foto.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingAvatar = false);
+    }
+  }
+
+  Future<void> _changeOrgLogo(OrganizationMembership membership) async {
+    final file = await pickAndCropImage(
+      context,
+      preset: CropAspectRatioPreset.square,
+    );
+    if (file == null) return;
+    setState(() => _uploadingLogo = true);
+    try {
+      final url = await ref
+          .read(storageRepositoryProvider)
+          .uploadOrgLogo(membership.organization.id, file);
+      await ref
+          .read(organizationsRepositoryProvider)
+          .updateOrganizationLogo(membership.organization.id, url);
+      ref
+          .read(orgStoreProvider.notifier)
+          .setActive(
+            OrganizationMembership(
+              organization: Organization(
+                id: membership.organization.id,
+                name: membership.organization.name,
+                logoUrl: url,
+                inviteCode: membership.organization.inviteCode,
+              ),
+              membershipId: membership.membershipId,
+              role: membership.role,
+              isActive: membership.isActive,
+            ),
+          );
+      bumpRefreshTick(ref);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Não foi possível atualizar o logótipo.'),
+          ),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingLogo = false);
+    }
   }
 
   @override
@@ -218,6 +293,48 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
               children: [
                 Text('Perfil', style: Theme.of(context).textTheme.titleMedium),
                 const SizedBox(height: 12),
+                Center(
+                  child: GestureDetector(
+                    onTap: _uploadingAvatar ? null : _changeAvatar,
+                    child: Stack(
+                      children: [
+                        CircleAvatar(
+                          radius: 40,
+                          backgroundImage: _avatarUrl != null
+                              ? NetworkImage(_avatarUrl!)
+                              : null,
+                          child: _avatarUrl == null
+                              ? const Icon(Icons.person_outline, size: 32)
+                              : null,
+                        ),
+                        Positioned(
+                          right: 0,
+                          bottom: 0,
+                          child: Container(
+                            padding: const EdgeInsets.all(4),
+                            decoration: BoxDecoration(
+                              color: Theme.of(context).colorScheme.primary,
+                              shape: BoxShape.circle,
+                            ),
+                            child: _uploadingAvatar
+                                ? const SizedBox(
+                                    height: 14,
+                                    width: 14,
+                                    child: CircularProgressIndicator(
+                                      strokeWidth: 2,
+                                    ),
+                                  )
+                                : const Icon(
+                                    Icons.camera_alt_outlined,
+                                    size: 14,
+                                  ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
                 TextField(
                   controller: _nameController,
                   decoration: const InputDecoration(labelText: 'Nome'),
@@ -264,6 +381,54 @@ class _SettingsScreenState extends ConsumerState<SettingsScreen> {
                     style: Theme.of(context).textTheme.titleMedium,
                   ),
                   const SizedBox(height: 12),
+                  if (isAdmin)
+                    Center(
+                      child: GestureDetector(
+                        onTap: _uploadingLogo
+                            ? null
+                            : () => _changeOrgLogo(membership),
+                        child: Stack(
+                          children: [
+                            CircleAvatar(
+                              radius: 32,
+                              backgroundImage:
+                                  membership.organization.logoUrl != null
+                                  ? NetworkImage(
+                                      membership.organization.logoUrl!,
+                                    )
+                                  : null,
+                              child: membership.organization.logoUrl == null
+                                  ? const Icon(Icons.groups_outlined)
+                                  : null,
+                            ),
+                            Positioned(
+                              right: 0,
+                              bottom: 0,
+                              child: Container(
+                                padding: const EdgeInsets.all(4),
+                                decoration: BoxDecoration(
+                                  color: Theme.of(context).colorScheme.primary,
+                                  shape: BoxShape.circle,
+                                ),
+                                child: _uploadingLogo
+                                    ? const SizedBox(
+                                        height: 12,
+                                        width: 12,
+                                        child: CircularProgressIndicator(
+                                          strokeWidth: 2,
+                                        ),
+                                      )
+                                    : const Icon(
+                                        Icons.camera_alt_outlined,
+                                        size: 12,
+                                      ),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  if (isAdmin) const SizedBox(height: 16),
                   TextField(
                     controller: _orgNameController,
                     enabled: isAdmin,

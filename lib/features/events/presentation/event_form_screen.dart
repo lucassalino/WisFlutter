@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:image_cropper/image_cropper.dart';
 
 import '../../../shared/constants/ministry_constants.dart';
+import '../../../shared/data/storage_repository.dart';
 import '../../../shared/domain/event.dart';
 import '../../../shared/state/refresh_tick.dart';
+import '../../../shared/utils/image_picker_helper.dart';
 import '../../ministries/domain/ministry.dart';
 import '../../ministries/domain/ministry_member.dart';
 import '../../ministries/presentation/ministries_providers.dart';
@@ -39,6 +42,8 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
   TimeOfDay _time = TimeOfDay.now();
   TimeOfDay? _arrivalTime;
   bool _isPublished = false;
+  String? _coverImageUrl;
+  bool _uploadingCover = false;
 
   Set<String> _selectedMinistryIds = {};
   Map<String, List<EventScheduleAssignment>> _membersByMinistry = {};
@@ -67,6 +72,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
       _time = event.time;
       _arrivalTime = event.arrivalTime;
       _isPublished = event.isPublished;
+      _coverImageUrl = event.coverImageUrl;
       _loadExistingSetup(event.id);
     } else {
       _loading = false;
@@ -99,6 +105,29 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
     super.dispose();
   }
 
+  Future<void> _pickCoverImage() async {
+    final file = await pickAndCropImage(
+      context,
+      preset: CropAspectRatioPreset.ratio16x9,
+    );
+    if (file == null) return;
+    setState(() => _uploadingCover = true);
+    try {
+      final url = await ref
+          .read(storageRepositoryProvider)
+          .uploadEventCover(widget.orgId, file);
+      if (mounted) setState(() => _coverImageUrl = url);
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Não foi possível enviar a imagem.')),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _uploadingCover = false);
+    }
+  }
+
   Future<void> _submit() async {
     if (_nameController.text.trim().isEmpty) {
       _tabController.index = 0;
@@ -125,6 +154,7 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
       observations: _observationsController.text.trim().isEmpty
           ? null
           : _observationsController.text.trim(),
+      coverImageUrl: _coverImageUrl,
       isPublished: _isPublished,
     );
 
@@ -225,6 +255,43 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
+        GestureDetector(
+          onTap: _uploadingCover ? null : _pickCoverImage,
+          child: Container(
+            height: 140,
+            width: double.infinity,
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              borderRadius: BorderRadius.circular(12),
+              image: _coverImageUrl != null
+                  ? DecorationImage(
+                      image: NetworkImage(_coverImageUrl!),
+                      fit: BoxFit.cover,
+                    )
+                  : null,
+            ),
+            alignment: Alignment.center,
+            child: _uploadingCover
+                ? const CircularProgressIndicator()
+                : _coverImageUrl == null
+                ? const Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(Icons.add_photo_alternate_outlined, size: 32),
+                      SizedBox(height: 4),
+                      Text('Imagem de capa'),
+                    ],
+                  )
+                : Align(
+                    alignment: Alignment.topRight,
+                    child: IconButton(
+                      icon: const Icon(Icons.close, color: Colors.white),
+                      onPressed: () => setState(() => _coverImageUrl = null),
+                    ),
+                  ),
+          ),
+        ),
+        const SizedBox(height: 16),
         TextField(
           controller: _nameController,
           decoration: const InputDecoration(labelText: 'Nome do evento'),

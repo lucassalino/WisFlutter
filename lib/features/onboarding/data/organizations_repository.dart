@@ -118,6 +118,16 @@ class OrganizationsRepository {
         .eq('id', orgId);
   }
 
+  Future<void> updateOrganizationLogo(String orgId, String logoUrl) async {
+    await _client
+        .from('organizations')
+        .update({
+          'logo_url': logoUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', orgId);
+  }
+
   /// Sair da organização — espelha `leaveOrganizationAction`. Se for a
   /// última pessoa, sair significa eliminar a organização (needsDelete).
   /// Se for o único admin com mais gente na organização, bloqueia.

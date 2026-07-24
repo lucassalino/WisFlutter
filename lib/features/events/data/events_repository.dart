@@ -25,6 +25,7 @@ class EventPayload {
     this.color,
     this.description,
     this.observations,
+    this.coverImageUrl,
     required this.isPublished,
   });
 
@@ -36,6 +37,7 @@ class EventPayload {
   final String? color;
   final String? description;
   final String? observations;
+  final String? coverImageUrl;
   final bool isPublished;
 
   static String _fmtDate(DateTime d) =>
@@ -52,6 +54,7 @@ class EventPayload {
     'color': color,
     'description': description,
     'observations': observations,
+    'cover_image_url': coverImageUrl,
     'is_published': isPublished,
   };
 }

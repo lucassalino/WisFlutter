@@ -127,6 +127,13 @@ class _EventDetailScreenState extends ConsumerState<EventDetailScreen>
       ),
       body: Column(
         children: [
+          if (widget.event.coverImageUrl != null)
+            Image.network(
+              widget.event.coverImageUrl!,
+              height: 160,
+              width: double.infinity,
+              fit: BoxFit.cover,
+            ),
           Padding(
             padding: const EdgeInsets.all(16),
             child: Wrap(

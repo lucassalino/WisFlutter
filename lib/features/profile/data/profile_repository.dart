@@ -44,6 +44,18 @@ class ProfileRepository {
         .eq('id', userId);
   }
 
+  Future<void> updateAvatarUrl(String avatarUrl) async {
+    final userId = _client.auth.currentUser?.id;
+    if (userId == null) throw StateError('Sessão expirada');
+    await _client
+        .from('profiles')
+        .update({
+          'avatar_url': avatarUrl,
+          'updated_at': DateTime.now().toIso8601String(),
+        })
+        .eq('id', userId);
+  }
+
   /// Elimina permanentemente a conta — RPC `delete_own_account`
   /// (SECURITY DEFINER, já existente) apaga `auth.users`, o que cai em
   /// cascata sobre o perfil e as suas memberships.
