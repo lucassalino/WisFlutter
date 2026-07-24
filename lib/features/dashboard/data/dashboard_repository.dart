@@ -4,7 +4,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../core/supabase/supabase_providers.dart';
 import '../domain/birthday_person.dart';
 import '../domain/dashboard_summary.dart';
-import '../domain/event.dart';
+import '../../../shared/domain/event.dart';
 
 final dashboardRepositoryProvider = Provider<DashboardRepository>((ref) {
   return DashboardRepository(ref.watch(supabaseClientProvider));

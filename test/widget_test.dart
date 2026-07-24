@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:wis/features/dashboard/domain/event.dart';
+import 'package:wis/shared/domain/event.dart';
 
 void main() {
   group('EventDayPeriod.fromTimeOfDay', () {

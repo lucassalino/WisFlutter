@@ -1,5 +1,5 @@
+import '../../../shared/domain/event.dart';
 import 'birthday_person.dart';
-import 'event.dart';
 
 class DashboardSummary {
   const DashboardSummary({

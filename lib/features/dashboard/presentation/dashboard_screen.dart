@@ -4,10 +4,12 @@ import 'package:intl/intl.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/theme/app_theme.dart';
+import '../../../shared/domain/event.dart';
 import '../../../shared/state/org_store.dart';
+import '../../events/presentation/event_detail_screen.dart';
+import '../../events/presentation/event_form_screen.dart';
 import '../domain/birthday_person.dart';
 import '../domain/dashboard_summary.dart';
-import '../domain/event.dart';
 import 'dashboard_providers.dart';
 
 class DashboardScreen extends ConsumerWidget {
@@ -25,8 +27,11 @@ class DashboardScreen extends ConsumerWidget {
         child: RefreshIndicator(
           onRefresh: () => ref.refresh(dashboardSummaryProvider(orgId).future),
           child: summaryAsync.when(
-            data: (summary) =>
-                _DashboardBody(firstName: firstName, summary: summary),
+            data: (summary) => _DashboardBody(
+              orgId: orgId,
+              firstName: firstName,
+              summary: summary,
+            ),
             loading: () => const Center(child: CircularProgressIndicator()),
             error: (error, _) => ListView(
               children: [
@@ -39,8 +44,10 @@ class DashboardScreen extends ConsumerWidget {
       ),
       floatingActionButton: summaryAsync.value?.isAdmin == true
           ? FloatingActionButton.extended(
-              onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Criar evento — em breve')),
+              onPressed: () => Navigator.of(context).push(
+                MaterialPageRoute(
+                  builder: (context) => EventFormScreen(orgId: orgId),
+                ),
               ),
               icon: const Icon(Icons.add),
               label: const Text('Criar evento'),
@@ -60,8 +67,13 @@ class DashboardScreen extends ConsumerWidget {
 }
 
 class _DashboardBody extends ConsumerWidget {
-  const _DashboardBody({required this.firstName, required this.summary});
+  const _DashboardBody({
+    required this.orgId,
+    required this.firstName,
+    required this.summary,
+  });
 
+  final String orgId;
   final String firstName;
   final DashboardSummary summary;
 
@@ -128,7 +140,9 @@ class _DashboardBody extends ConsumerWidget {
             child: Center(child: Text('Sem eventos agendados de momento.')),
           )
         else
-          ...summary.upcomingEvents.map((event) => _EventCard(event: event)),
+          ...summary.upcomingEvents.map(
+            (event) => _EventCard(orgId: orgId, event: event),
+          ),
         if (summary.birthdaysThisMonth.isNotEmpty) ...[
           const SizedBox(height: 24),
           Text(
@@ -179,8 +193,9 @@ class _StatCard extends StatelessWidget {
 }
 
 class _EventCard extends StatelessWidget {
-  const _EventCard({required this.event});
+  const _EventCard({required this.orgId, required this.event});
 
+  final String orgId;
   final Event event;
 
   @override
@@ -191,39 +206,47 @@ class _EventCard extends StatelessWidget {
 
     return Card(
       margin: const EdgeInsets.only(bottom: 8),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Row(
-          children: [
-            Text(event.period.emoji, style: const TextStyle(fontSize: 24)),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          event.name,
-                          style: Theme.of(context).textTheme.titleSmall,
-                          overflow: TextOverflow.ellipsis,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () => Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => EventDetailScreen(orgId: orgId, event: event),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Row(
+            children: [
+              Text(event.period.emoji, style: const TextStyle(fontSize: 24)),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            event.name,
+                            style: Theme.of(context).textTheme.titleSmall,
+                            overflow: TextOverflow.ellipsis,
+                          ),
                         ),
-                      ),
-                      _StatusBadge(isPublished: event.isPublished),
-                    ],
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    '$dateLabel · $timeLabel${event.location != null ? ' · ${event.location}' : ''}',
-                    style: Theme.of(
-                      context,
-                    ).textTheme.bodySmall?.copyWith(color: Colors.white54),
-                  ),
-                ],
+                        _StatusBadge(isPublished: event.isPublished),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      '$dateLabel · $timeLabel${event.location != null ? ' · ${event.location}' : ''}',
+                      style: Theme.of(
+                        context,
+                      ).textTheme.bodySmall?.copyWith(color: Colors.white54),
+                    ),
+                  ],
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
