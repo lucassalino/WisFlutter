@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 
-import '../../../shared/widgets/coming_soon_screen.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
 import '../../events/presentation/events_list_screen.dart';
+import '../../schedule/presentation/schedule_events_screen.dart';
 import '../../songs/presentation/songs_list_screen.dart';
 import 'more_screen.dart';
 
@@ -23,7 +23,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
     final tabs = [
       DashboardScreen(orgId: widget.orgId),
       EventsListScreen(orgId: widget.orgId),
-      const ComingSoonScreen(title: 'Escala', icon: Icons.checklist_outlined),
+      ScheduleEventsScreen(orgId: widget.orgId),
       SongsListScreen(orgId: widget.orgId),
       const MoreScreen(),
     ];

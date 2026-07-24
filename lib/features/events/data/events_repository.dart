@@ -4,10 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_providers.dart';
 import '../../../shared/domain/event.dart';
+import '../../ministries/domain/ministry.dart';
 import '../domain/event_ministry.dart';
 import '../domain/event_schedule.dart';
 import '../domain/event_setlist_item.dart';
 import '../domain/event_timeline_item.dart';
+import '../domain/scheduled_contact.dart';
 
 final eventsRepositoryProvider = Provider<EventsRepository>((ref) {
   return EventsRepository(ref.watch(supabaseClientProvider));
@@ -346,5 +348,148 @@ class EventsRepository {
         .from('event_schedules')
         .update({'confirmed': confirmed})
         .eq('id', id);
+  }
+
+  // ── Escala — edição incremental (ao contrário do wizard, que apaga e
+  // reinsere tudo, aqui só se toca na linha que muda, preservando as
+  // confirmações já dadas pelas outras pessoas). ──────────────────────
+
+  Future<EventMinistry> addMinistryToEvent(
+    String eventId,
+    Ministry ministry,
+  ) async {
+    final row = await _client
+        .from('event_ministries')
+        .insert({'event_id': eventId, 'ministry_id': ministry.id})
+        .select('id, event_id')
+        .single();
+    return EventMinistry(
+      id: row['id'] as String,
+      eventId: eventId,
+      ministry: ministry,
+    );
+  }
+
+  Future<void> removeMinistryFromEvent(String eventMinistryId) async {
+    await _client.from('event_ministries').delete().eq('id', eventMinistryId);
+  }
+
+  Future<void> addPersonToSchedule(
+    String eventMinistryId,
+    String userId,
+    List<String> functions,
+  ) async {
+    await _client.from('event_schedules').insert({
+      'event_ministry_id': eventMinistryId,
+      'user_id': userId,
+      'functions': functions,
+    });
+  }
+
+  Future<void> removePersonFromSchedule(String scheduleId) async {
+    await _client.from('event_schedules').delete().eq('id', scheduleId);
+  }
+
+  Future<void> updateScheduleFunctions(
+    String scheduleId,
+    List<String> functions,
+  ) async {
+    await _client
+        .from('event_schedules')
+        .update({'functions': functions})
+        .eq('id', scheduleId);
+  }
+
+  /// Contactos das pessoas escaladas num evento, para a mensagem de
+  /// WhatsApp do "Publicar & Notificar" — espelha
+  /// `fetchEventScheduledContactsAction`.
+  Future<List<ScheduledContact>> fetchScheduledContacts(String eventId) async {
+    final eventMinistries = await _client
+        .from('event_ministries')
+        .select('id, ministry:ministries(name)')
+        .eq('event_id', eventId);
+    final ministryNameByEm = <String, String>{
+      for (final row in eventMinistries as List)
+        row['id'] as String:
+            (row['ministry'] as Map<String, dynamic>?)?['name'] as String? ??
+            '',
+    };
+    final emIds = ministryNameByEm.keys.toList();
+    if (emIds.isEmpty) return [];
+
+    final schedules = await _client
+        .from('event_schedules')
+        .select(
+          'user_id, confirmed, event_ministry_id, profile:profiles(full_name, phone)',
+        )
+        .inFilter('event_ministry_id', emIds);
+
+    final byUser =
+        <
+          String,
+          ({
+            String name,
+            String? phone,
+            bool? confirmed,
+            Set<String> ministries,
+          })
+        >{};
+    for (final row in schedules as List) {
+      final userId = row['user_id'] as String;
+      final profile = row['profile'] as Map<String, dynamic>?;
+      final existing = byUser[userId];
+      final ministries = existing?.ministries ?? <String>{};
+      final ministryName = ministryNameByEm[row['event_ministry_id'] as String];
+      if (ministryName != null && ministryName.isNotEmpty) {
+        ministries.add(ministryName);
+      }
+      byUser[userId] = (
+        name: profile?['full_name'] as String? ?? 'Sem nome',
+        phone: profile?['phone'] as String?,
+        confirmed: row['confirmed'] as bool?,
+        ministries: ministries,
+      );
+    }
+
+    return [
+      for (final entry in byUser.entries)
+        ScheduledContact(
+          userId: entry.key,
+          name: entry.value.name,
+          phone: entry.value.phone,
+          confirmed: entry.value.confirmed,
+          ministries: entry.value.ministries.toList(),
+        ),
+    ];
+  }
+
+  /// Cria notificações in-app para todas as pessoas escaladas no evento —
+  /// espelha `notifyEventSchedulesAction`.
+  Future<int> notifyEventSchedules(String eventId, String eventName) async {
+    final eventMinistries = await _client
+        .from('event_ministries')
+        .select('id')
+        .eq('event_id', eventId);
+    final emIds = (eventMinistries as List)
+        .map((row) => row['id'] as String)
+        .toList();
+    if (emIds.isEmpty) return 0;
+
+    final schedules = await _client
+        .from('event_schedules')
+        .select('user_id')
+        .inFilter('event_ministry_id', emIds);
+    final userIds = (schedules as List)
+        .map((row) => row['user_id'] as String)
+        .toSet();
+    if (userIds.isEmpty) return 0;
+
+    final message =
+        'Foste escalado(a) para "$eventName". Confirma a tua presença.';
+    await _client.from('notifications').insert([
+      for (final userId in userIds)
+        {'user_id': userId, 'event_id': eventId, 'message': message},
+    ]);
+    return userIds.length;
   }
 }
