@@ -5,6 +5,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../shared/state/org_store.dart';
 import '../../../shared/widgets/coming_soon_screen.dart';
 import '../../auth/data/auth_repository.dart';
+import '../../members/presentation/members_list_screen.dart';
 import '../../ministries/presentation/ministries_list_screen.dart';
 
 /// Hub "Mais": acesso às secções que não cabem na bottom nav (Ministérios,
@@ -46,10 +47,7 @@ class MoreScreen extends ConsumerWidget {
                     trailing: const Icon(Icons.chevron_right),
                     onTap: () => Navigator.of(context).push(
                       MaterialPageRoute(
-                        builder: (context) => const ComingSoonScreen(
-                          title: 'Pessoas',
-                          icon: Icons.people_outline,
-                        ),
+                        builder: (context) => MembersListScreen(orgId: orgId),
                       ),
                     ),
                   ),

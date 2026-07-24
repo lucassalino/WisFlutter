@@ -21,6 +21,7 @@ class OrganizationsRepository {
   /// espelhando `fetchOrgMembershipsAction` na app web.
   Future<List<OrganizationMembership>> fetchMyMemberships() async {
     final userId = _requireUserId();
+    await _acceptPendingInvites();
     final rows = await _client
         .from('organization_members')
         .select(
@@ -91,6 +92,21 @@ class OrganizationsRepository {
     }
 
     return orgId;
+  }
+
+  /// Aceita automaticamente convites pendentes para o email do utilizador
+  /// atual (via Edge Function `manage-invite`) — chamado sempre que se
+  /// carregam as organizações, para nunca ficar um convite por aceitar
+  /// depois do login. Falhas são ignoradas: não bloqueia a app.
+  Future<void> _acceptPendingInvites() async {
+    try {
+      await _client.functions.invoke(
+        'manage-invite',
+        body: {'action': 'acceptPending'},
+      );
+    } catch (_) {
+      // Best-effort — a pessoa pode sempre entrar manualmente por código.
+    }
   }
 
   String _requireUserId() {
