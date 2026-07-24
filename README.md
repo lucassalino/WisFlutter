@@ -26,6 +26,50 @@ regras de negócio) e serve de base funcional para este port:
 - `prd-funcionalidades-2026-07.md` — funcionalidades adicionadas no último ciclo.
 - `roadmap-planos-assinatura.md` — roadmap de planos de assinatura (ainda não implementado).
 
+## Stack
+
+- **Flutter** (Dart) + **Riverpod** (estado) + **go_router** (navegação/deep links)
+- **Supabase** (`supabase_flutter`) — mesmo backend do ServiceFlow (Postgres + Auth + Storage), sem servidor próprio
+- Bundle id / package: `com.wisservices.wis`
+
+## Como correr
+
+```bash
+flutter pub get
+flutter run
+```
+
+As credenciais Supabase têm defaults embutidos em `lib/core/config/env.dart`
+(URL + publishable/anon key — seguros para expor no cliente, protegidos por
+RLS). Para apontar a outro projeto:
+
+```bash
+flutter run --dart-define=SUPABASE_URL=... --dart-define=SUPABASE_ANON_KEY=...
+```
+
 ## Estado
 
-Projeto em arranque — scaffold Flutter ainda por criar.
+Fundação implementada: scaffold do projeto (iOS + Android), tema (dark navy,
+marca WIS), autenticação (login, registo, recuperar/definir password),
+onboarding de organização (selecionar, criar, entrar por código) e Dashboard
+(próximos eventos, confirmações pendentes, aniversariantes do mês).
+
+### Nota de arquitetura — RLS em vez de servidor privilegiado
+
+A app web (Next.js) usa Server Actions com a **service role key** para
+contornar RLS em várias escritas. Como a app Flutter não tem servidor
+próprio, isso nunca pode ser replicado no cliente (a service role key não
+pode ser embutida numa app nativa). Foi confirmado que o RLS já existente no
+schema (`is_org_member`/`is_org_admin`/`is_org_admin_or_leader`, ver
+`supabase/migrations` do ServiceFlow) cobre diretamente quase tudo o que a
+fundação precisa — a única exceção encontrada até agora é resolver um
+código de convite antes de o utilizador ser membro (RLS bloqueia a leitura
+de `organizations` a não-membros). A função adicional necessária para isso
+está em [`supabase/migrations/20260724_resolve_invite_code.sql`](supabase/migrations/20260724_resolve_invite_code.sql)
+— puramente aditiva, ainda **por aplicar** ao projeto Supabase partilhado
+(pendente de confirmação, por ser uma alteração a uma base de dados de
+produção partilhada com a app web).
+
+Próximos ecrãs a construir (ver `docs/reference/` para a especificação
+completa): Eventos, Escala, Repertório, Ministérios, Pessoas, Definições,
+Notificações, push nativo e deep links.
