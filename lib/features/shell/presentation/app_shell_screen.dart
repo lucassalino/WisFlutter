@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../../shared/widgets/coming_soon_screen.dart';
 import '../../dashboard/presentation/dashboard_screen.dart';
+import '../../songs/presentation/songs_list_screen.dart';
 import 'more_screen.dart';
 
 class AppShellScreen extends StatefulWidget {
@@ -22,10 +23,7 @@ class _AppShellScreenState extends State<AppShellScreen> {
       DashboardScreen(orgId: widget.orgId),
       const ComingSoonScreen(title: 'Eventos', icon: Icons.event_outlined),
       const ComingSoonScreen(title: 'Escala', icon: Icons.checklist_outlined),
-      const ComingSoonScreen(
-        title: 'Repertório',
-        icon: Icons.music_note_outlined,
-      ),
+      SongsListScreen(orgId: widget.orgId),
       const MoreScreen(),
     ];
 
