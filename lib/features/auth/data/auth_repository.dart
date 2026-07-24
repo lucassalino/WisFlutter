@@ -7,6 +7,14 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
   return AuthRepository(ref.watch(supabaseClientProvider));
 });
 
+/// Deep link para onde o Supabase reenvia depois de confirmar o email ou
+/// pedir recuperação de password — registado como esquema `wis://` no
+/// AndroidManifest/Info.plist. O `supabase_flutter` já escuta estes links
+/// automaticamente (`SupabaseAuth`/`detectSessionInUri`) e estabelece a
+/// sessão sozinho a partir do token na URL; não é preciso código extra
+/// aqui além de indicar este redirect nas chamadas de auth.
+const authCallbackRedirectUrl = 'wis://auth-callback';
+
 class AuthRepository {
   AuthRepository(this._client);
 
@@ -27,11 +35,15 @@ class AuthRepository {
       email: email,
       password: password,
       data: {'full_name': fullName},
+      emailRedirectTo: authCallbackRedirectUrl,
     );
   }
 
   Future<void> sendPasswordResetEmail(String email) {
-    return _client.auth.resetPasswordForEmail(email);
+    return _client.auth.resetPasswordForEmail(
+      email,
+      redirectTo: authCallbackRedirectUrl,
+    );
   }
 
   /// Usado depois de um convite/recuperação, quando já existe uma sessão

@@ -25,6 +25,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final refreshNotifier = _RouterRefreshNotifier();
   ref.listen(authStateChangesProvider, (_, _) => refreshNotifier.notify());
   ref.listen(orgStoreProvider, (_, _) => refreshNotifier.notify());
+  ref.listen(
+    passwordRecoveryPendingProvider,
+    (_, _) => refreshNotifier.notify(),
+  );
   ref.onDispose(refreshNotifier.dispose);
 
   return GoRouter(
@@ -74,6 +78,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
 String? _redirect(Ref ref, GoRouterState state) {
   final location = state.matchedLocation;
   final session = ref.read(supabaseClientProvider).auth.currentSession;
+
+  // Um deep link de recuperação de password abre uma sessão válida — mas
+  // "autenticado" aqui só deve significar "pode definir a nova password",
+  // nunca entrar direto no dashboard.
+  if (ref.read(passwordRecoveryPendingProvider)) {
+    return location == '/set-password' ? null : '/set-password';
+  }
 
   if (session == null) {
     return _authRoutes.contains(location) ? null : '/login';

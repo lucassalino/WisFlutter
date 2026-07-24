@@ -25,6 +25,16 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Deep links: confirmação de email, recuperação de password,
+                 convites — usado como emailRedirectTo/redirectTo nas chamadas
+                 de auth do Supabase. Universal Links (https://wis-services.com)
+                 ficam para quando houver conta Apple Developer, para o AASA. -->
+            <intent-filter android:autoVerify="false">
+                <action android:name="android.intent.action.VIEW"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <category android:name="android.intent.category.BROWSABLE"/>
+                <data android:scheme="wis" android:host="auth-callback"/>
+            </intent-filter>
         </activity>
         <!-- image_cropper: required host activity for the native crop UI -->
         <activity

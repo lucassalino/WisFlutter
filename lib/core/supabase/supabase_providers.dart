@@ -20,3 +20,24 @@ final currentUserProvider = Provider<User?>((ref) {
   return authState.value?.session?.user ??
       ref.read(supabaseClientProvider).auth.currentUser;
 });
+
+/// Set to true when a password-recovery deep link (`wis://auth-callback`)
+/// establishes a recovery session — the router uses this to force
+/// `/set-password` even though the session is technically "signed in".
+/// Cleared once the new password is saved.
+class PasswordRecoveryFlag extends Notifier<bool> {
+  @override
+  bool build() {
+    ref.listen(authStateChangesProvider, (previous, next) {
+      if (next.value?.event == AuthChangeEvent.passwordRecovery) {
+        state = true;
+      }
+    });
+    return false;
+  }
+
+  void clear() => state = false;
+}
+
+final passwordRecoveryPendingProvider =
+    NotifierProvider<PasswordRecoveryFlag, bool>(PasswordRecoveryFlag.new);

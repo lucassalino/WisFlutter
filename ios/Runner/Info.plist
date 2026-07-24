@@ -30,6 +30,17 @@
 	<string>Precisamos de acesso às tuas fotos para escolheres uma imagem de perfil, logótipo ou capa de evento.</string>
 	<key>NSCameraUsageDescription</key>
 	<string>Precisamos de acesso à câmara para tirares uma foto de perfil, logótipo ou capa de evento.</string>
+	<key>CFBundleURLTypes</key>
+	<array>
+		<dict>
+			<key>CFBundleURLName</key>
+			<string>com.wisservices.wis.authcallback</string>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>wis</string>
+			</array>
+		</dict>
+	</array>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

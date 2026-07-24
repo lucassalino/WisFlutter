@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../core/supabase/supabase_providers.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../data/auth_repository.dart';
 
@@ -41,6 +42,7 @@ class _SetNewPasswordScreenState extends ConsumerState<SetNewPasswordScreen> {
       await ref
           .read(authRepositoryProvider)
           .updatePassword(_passwordController.text);
+      ref.read(passwordRecoveryPendingProvider.notifier).clear();
       if (mounted) context.go('/org-selection');
     } on AuthException catch (e) {
       setState(() => _error = e.message);
