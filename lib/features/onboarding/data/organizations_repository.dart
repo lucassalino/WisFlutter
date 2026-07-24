@@ -12,6 +12,8 @@ final organizationsRepositoryProvider = Provider<OrganizationsRepository>((
   return OrganizationsRepository(ref.watch(supabaseClientProvider));
 });
 
+enum LeaveOrgResult { left, needsDelete, onlyAdminBlocked }
+
 class OrganizationsRepository {
   OrganizationsRepository(this._client);
 
@@ -107,6 +109,48 @@ class OrganizationsRepository {
     } catch (_) {
       // Best-effort — a pessoa pode sempre entrar manualmente por código.
     }
+  }
+
+  Future<void> updateOrganizationName(String orgId, String name) async {
+    await _client
+        .from('organizations')
+        .update({'name': name, 'updated_at': DateTime.now().toIso8601String()})
+        .eq('id', orgId);
+  }
+
+  /// Sair da organização — espelha `leaveOrganizationAction`. Se for a
+  /// última pessoa, sair significa eliminar a organização (needsDelete).
+  /// Se for o único admin com mais gente na organização, bloqueia.
+  Future<LeaveOrgResult> leaveOrganization(String orgId) async {
+    final userId = _requireUserId();
+    final rows = await _client
+        .from('organization_members')
+        .select('user_id, role')
+        .eq('org_id', orgId)
+        .eq('is_active', true);
+    final members = (rows as List).cast<Map<String, dynamic>>();
+
+    final isLastPerson =
+        members.length <= 1 && members.every((m) => m['user_id'] == userId);
+    if (isLastPerson) return LeaveOrgResult.needsDelete;
+
+    final admins = members.where((m) => m['role'] == 'admin').toList();
+    final isOnlyAdmin = admins.length == 1 && admins.first['user_id'] == userId;
+    if (isOnlyAdmin) return LeaveOrgResult.onlyAdminBlocked;
+
+    await _client
+        .from('organization_members')
+        .delete()
+        .eq('org_id', orgId)
+        .eq('user_id', userId);
+    return LeaveOrgResult.left;
+  }
+
+  /// Elimina permanentemente a organização. As tabelas dependentes têm
+  /// `on delete cascade` a partir de `organizations`, por isso um único
+  /// delete já limpa ministérios, eventos, escalas, músicas, convites, etc.
+  Future<void> deleteOrganization(String orgId) async {
+    await _client.from('organizations').delete().eq('id', orgId);
   }
 
   String _requireUserId() {

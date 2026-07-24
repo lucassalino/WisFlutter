@@ -4,12 +4,12 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/state/org_store.dart';
 import '../../../shared/widgets/coming_soon_screen.dart';
-import '../../auth/data/auth_repository.dart';
 import '../../members/presentation/members_list_screen.dart';
 import '../../ministries/presentation/ministries_list_screen.dart';
+import '../../settings/presentation/settings_screen.dart';
 
 /// Hub "Mais": acesso às secções que não cabem na bottom nav (Ministérios,
-/// Pessoas, Notificações, Definições) + sessão. Ver
+/// Pessoas, Notificações, Definições). Ver
 /// docs/reference/wis-app-overview-and-rn-prompt.md, tela 14.
 class MoreScreen extends ConsumerWidget {
   const MoreScreen({super.key});
@@ -25,7 +25,15 @@ class MoreScreen extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: [
-          if (orgId != null) ...[
+          if (user != null)
+            Card(
+              child: ListTile(
+                leading: const Icon(Icons.person_outline),
+                title: Text(user.email ?? ''),
+              ),
+            ),
+          const SizedBox(height: 12),
+          if (orgId != null)
             Card(
               child: Column(
                 children: [
@@ -65,39 +73,20 @@ class MoreScreen extends ConsumerWidget {
                       ),
                     ),
                   ),
+                  const Divider(height: 1),
+                  ListTile(
+                    leading: const Icon(Icons.settings_outlined),
+                    title: const Text('Definições'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () => Navigator.of(context).push(
+                      MaterialPageRoute(
+                        builder: (context) => const SettingsScreen(),
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-            const SizedBox(height: 12),
-          ],
-          if (user != null)
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(user.email ?? ''),
-              ),
-            ),
-          if (membership != null) ...[
-            const SizedBox(height: 12),
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.groups_outlined),
-                title: Text(membership.organization.name),
-                subtitle: Text(
-                  'Código de convite: ${membership.organization.inviteCode}',
-                ),
-              ),
-            ),
-          ],
-          const SizedBox(height: 24),
-          OutlinedButton.icon(
-            onPressed: () async {
-              await ref.read(authRepositoryProvider).signOut();
-              ref.read(orgStoreProvider.notifier).clear();
-            },
-            icon: const Icon(Icons.logout),
-            label: const Text('Terminar sessão'),
-          ),
         ],
       ),
     );
