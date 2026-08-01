@@ -14,6 +14,8 @@ class SongPayload {
     this.artist,
     this.musicalKey,
     this.bpm,
+    this.duration,
+    this.bibleReference,
     this.lyrics,
     this.chords,
     this.youtubeUrl,
@@ -25,6 +27,8 @@ class SongPayload {
   final String? artist;
   final String? musicalKey;
   final int? bpm;
+  final String? duration;
+  final String? bibleReference;
   final String? lyrics;
   final String? chords;
   final String? youtubeUrl;
@@ -36,6 +40,8 @@ class SongPayload {
     'artist': artist,
     'musical_key': musicalKey,
     'bpm': bpm,
+    'duration': duration,
+    'bible_reference': bibleReference,
     'lyrics': lyrics,
     'chords': chords,
     'youtube_url': youtubeUrl,

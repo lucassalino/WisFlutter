@@ -7,6 +7,8 @@ class Song {
     this.artist,
     this.musicalKey,
     this.bpm,
+    this.duration,
+    this.bibleReference,
     this.lyrics,
     this.chords,
     this.youtubeUrl,
@@ -21,6 +23,8 @@ class Song {
   final String? artist;
   final String? musicalKey;
   final int? bpm;
+  final String? duration;
+  final String? bibleReference;
   final String? lyrics;
   final String? chords;
   final String? youtubeUrl;
@@ -35,6 +39,8 @@ class Song {
     artist: map['artist'] as String?,
     musicalKey: map['musical_key'] as String?,
     bpm: map['bpm'] as int?,
+    duration: map['duration'] as String?,
+    bibleReference: map['bible_reference'] as String?,
     lyrics: map['lyrics'] as String?,
     chords: map['chords'] as String?,
     youtubeUrl: map['youtube_url'] as String?,
