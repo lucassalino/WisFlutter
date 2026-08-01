@@ -8,6 +8,11 @@ final rosterRepositoryProvider = Provider<RosterRepository>((ref) {
   return RosterRepository(ref.watch(supabaseClientProvider));
 });
 
+final activeRosterProvider =
+    FutureProvider.family<List<OrgMemberOption>, String>((ref, orgId) {
+      return ref.watch(rosterRepositoryProvider).fetchActiveMembers(orgId);
+    });
+
 /// Lista de pessoas da organização usada em seletores (adicionar a um
 /// ministério, escalar para um evento). Reaproveitada por várias features.
 class RosterRepository {
