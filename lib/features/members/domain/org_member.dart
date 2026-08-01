@@ -15,6 +15,7 @@ class OrgMember {
     required this.isActive,
     required this.fullName,
     required this.email,
+    required this.joinedAt,
     this.avatarUrl,
     this.phone,
   });
@@ -25,6 +26,7 @@ class OrgMember {
   final bool isActive;
   final String fullName;
   final String email;
+  final DateTime joinedAt;
   final String? avatarUrl;
   final String? phone;
 
@@ -37,6 +39,9 @@ class OrgMember {
       isActive: map['is_active'] as bool? ?? true,
       fullName: profile['full_name'] as String? ?? '',
       email: profile['email'] as String? ?? '',
+      joinedAt:
+          DateTime.tryParse(map['joined_at'] as String? ?? '') ??
+          DateTime.now(),
       avatarUrl: profile['avatar_url'] as String?,
       phone: profile['phone'] as String?,
     );

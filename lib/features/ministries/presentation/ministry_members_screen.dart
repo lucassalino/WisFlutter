@@ -104,14 +104,20 @@ class _MinistryMembersScreenState extends ConsumerState<MinistryMembersScreen> {
                 return Card(
                   child: ExpansionTile(
                     leading: CircleAvatar(
+                      backgroundColor: const Color(
+                        0xFFA5B4FC,
+                      ).withValues(alpha: 0.15),
                       backgroundImage: person.avatarUrl != null
                           ? NetworkImage(person.avatarUrl!)
                           : null,
                       child: person.avatarUrl == null
                           ? Text(
-                              person.fullName.isNotEmpty
-                                  ? person.fullName[0]
-                                  : '?',
+                              _initials(person.fullName),
+                              style: const TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.w700,
+                                color: Color(0xFFA5B4FC),
+                              ),
                             )
                           : null,
                     ),
@@ -177,3 +183,13 @@ final _rosterProvider = FutureProvider.family<List<OrgMemberOption>, String>((
 ) {
   return ref.watch(rosterRepositoryProvider).fetchActiveMembers(orgId);
 });
+
+String _initials(String fullName) {
+  final parts = fullName
+      .trim()
+      .split(RegExp(r'\s+'))
+      .where((w) => w.isNotEmpty)
+      .toList();
+  if (parts.isEmpty) return '?';
+  return parts.map((w) => w[0]).take(2).join().toUpperCase();
+}

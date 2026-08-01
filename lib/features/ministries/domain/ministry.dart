@@ -7,6 +7,7 @@ class Ministry {
     required this.color,
     required this.functions,
     required this.isActive,
+    required this.createdAt,
   });
 
   final String id;
@@ -16,6 +17,7 @@ class Ministry {
   final String color;
   final List<String> functions;
   final bool isActive;
+  final DateTime createdAt;
 
   factory Ministry.fromMap(Map<String, dynamic> map) => Ministry(
     id: map['id'] as String,
@@ -27,5 +29,8 @@ class Ministry {
         .map((f) => f as String)
         .toList(),
     isActive: map['is_active'] as bool? ?? true,
+    createdAt:
+        DateTime.tryParse(map['created_at'] as String? ?? '') ??
+        DateTime.now(),
   );
 }

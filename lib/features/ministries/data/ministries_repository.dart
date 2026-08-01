@@ -112,4 +112,36 @@ class MinistriesRepository {
         },
     ]);
   }
+
+  /// Atribui (ou actualiza as funções de) uma pessoa a um ministério —
+  /// usado pelo editor "Gerir ministérios" de uma pessoa (perspectiva
+  /// inversa de [replaceMinistryMembers], que parte do ministério).
+  Future<void> setMemberFunctions(
+    String ministryId,
+    String userId,
+    List<String> functions,
+  ) async {
+    await _client
+        .from('ministry_members')
+        .delete()
+        .eq('ministry_id', ministryId)
+        .eq('user_id', userId);
+    await _client.from('ministry_members').insert({
+      'ministry_id': ministryId,
+      'user_id': userId,
+      'functions': functions,
+      'is_active': true,
+    });
+  }
+
+  Future<void> removeMemberFromMinistry(
+    String ministryId,
+    String userId,
+  ) async {
+    await _client
+        .from('ministry_members')
+        .delete()
+        .eq('ministry_id', ministryId)
+        .eq('user_id', userId);
+  }
 }
