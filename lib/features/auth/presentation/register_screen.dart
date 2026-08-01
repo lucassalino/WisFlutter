@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/widgets/auth_scaffold.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/wis_logo.dart';
 import '../data/auth_repository.dart';
@@ -60,119 +61,137 @@ class _RegisterScreenState extends ConsumerState<RegisterScreen> {
   @override
   Widget build(BuildContext context) {
     if (_confirmEmailSent) {
-      return Scaffold(
-        body: SafeArea(
-          child: Center(
-            child: Padding(
-              padding: const EdgeInsets.all(24),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const WisLogo(),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Confirma o teu email',
-                    style: Theme.of(context).textTheme.titleLarge,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    'Enviámos um link de confirmação para ${_emailController.text.trim()}. '
-                    'Abre-o para ativares a tua conta e depois entra normalmente.',
-                    textAlign: TextAlign.center,
-                  ),
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: () => context.go('/login'),
-                    child: const Text('Ir para o login'),
-                  ),
-                ],
-              ),
+      return AuthScaffold(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const WisLogo(size: 72),
+            const SizedBox(height: 24),
+            const Text(
+              'Confirma o teu email',
+              style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold),
             ),
-          ),
+            const SizedBox(height: 12),
+            Text(
+              'Enviámos um link de confirmação para ${_emailController.text.trim()}. '
+              'Abre-o para ativares a tua conta e depois entra normalmente.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: () => context.go('/login'),
+              child: const Text('Ir para o login'),
+            ),
+          ],
         ),
       );
     }
 
-    return Scaffold(
-      appBar: AppBar(),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(
-                    'Criar conta',
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                  const SizedBox(height: 24),
-                  TextFormField(
-                    controller: _nameController,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Nome'),
-                    validator: (value) =>
-                        (value == null || value.trim().isEmpty)
-                        ? 'Introduz o teu nome'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (value) =>
-                        (value == null || !value.contains('@'))
-                        ? 'Introduz um email válido'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  PasswordField(
-                    controller: _passwordController,
-                    label: 'Password',
-                    textInputAction: TextInputAction.next,
-                    validator: (value) => (value == null || value.length < 6)
-                        ? 'Mínimo de 6 caracteres'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  PasswordField(
-                    controller: _confirmController,
-                    label: 'Confirmar password',
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    validator: (value) => (value != _passwordController.text)
-                        ? 'As passwords não coincidem'
-                        : null,
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 24),
-                  ElevatedButton(
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Registar'),
-                  ),
-                ],
-              ),
+    return AuthScaffold(
+      showBackButton: true,
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(child: WisLogo(size: 72)),
+            const SizedBox(height: 20),
+            const Text(
+              'Criar conta',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-          ),
+            const SizedBox(height: 6),
+            Text(
+              'Preenche os teus dados para começar.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+            ),
+            const SizedBox(height: 28),
+            TextFormField(
+              controller: _nameController,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Nome completo',
+                hintText: 'João Silva',
+              ),
+              validator: (value) => (value == null || value.trim().isEmpty)
+                  ? 'Introduz o teu nome'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'email@exemplo.com',
+              ),
+              validator: (value) => (value == null || !value.contains('@'))
+                  ? 'Introduz um email válido'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            PasswordField(
+              controller: _passwordController,
+              label: 'Password',
+              textInputAction: TextInputAction.next,
+              validator: (value) => (value == null || value.length < 6)
+                  ? 'Mínimo de 6 caracteres'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            PasswordField(
+              controller: _confirmController,
+              label: 'Confirmar password',
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+              validator: (value) => (value != _passwordController.text)
+                  ? 'As passwords não coincidem'
+                  : null,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Text('Criar conta'),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Já tens conta? ',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+                ),
+                InkWell(
+                  onTap: () => context.push('/login'),
+                  child: const Text(
+                    'Entrar',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

@@ -5,9 +5,15 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../shared/constants/ministry_constants.dart';
 import '../../../shared/state/refresh_tick.dart';
-import '../../ministries/presentation/ministries_providers.dart';
 import '../data/songs_repository.dart';
 import '../domain/song.dart';
+
+final _primaryButtonStyle = ElevatedButton.styleFrom(
+  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+  minimumSize: Size.zero,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+);
 
 /// Criar ou editar uma música — o campo Nome pesquisa o catálogo global
 /// (`catalog_songs`) por nome/artista; ao escolher uma sugestão, preenche
@@ -33,7 +39,6 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
   late final TextEditingController _lyricsController;
   late final TextEditingController _chordsController;
   String? _musicalKey;
-  String? _ministryId;
   bool _submitting = false;
   String? _error;
 
@@ -54,7 +59,6 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
     _lyricsController = TextEditingController(text: song?.lyrics ?? '');
     _chordsController = TextEditingController(text: song?.chords ?? '');
     _musicalKey = song?.musicalKey;
-    _ministryId = song?.ministryId;
   }
 
   @override
@@ -70,7 +74,7 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
     super.dispose();
   }
 
-  void _onNameChanged(String value) {
+  void _onQueryChanged(String value) {
     _debounce?.cancel();
     _debounce = Timer(const Duration(milliseconds: 350), () async {
       final results = await ref
@@ -122,7 +126,6 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
       spotifyUrl: _spotifyController.text.trim().isEmpty
           ? null
           : _spotifyController.text.trim(),
-      ministryId: _ministryId,
     );
     try {
       final repo = ref.read(songsRepositoryProvider);
@@ -142,8 +145,6 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final ministriesAsync = ref.watch(ministriesListProvider(widget.orgId));
-
     return Scaffold(
       appBar: AppBar(title: Text(_isEditing ? 'Editar música' : 'Nova música')),
       body: Form(
@@ -154,10 +155,16 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
             TextFormField(
               controller: _nameController,
               decoration: const InputDecoration(labelText: 'Nome'),
-              onChanged: _onNameChanged,
+              onChanged: _onQueryChanged,
               validator: (value) => (value == null || value.trim().isEmpty)
                   ? 'Introduz um nome'
                   : null,
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _artistController,
+              decoration: const InputDecoration(labelText: 'Artista'),
+              onChanged: _onQueryChanged,
             ),
             if (_suggestions.isNotEmpty)
               Card(
@@ -176,11 +183,6 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
                   ],
                 ),
               ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _artistController,
-              decoration: const InputDecoration(labelText: 'Artista'),
-            ),
             const SizedBox(height: 16),
             Row(
               children: [
@@ -206,27 +208,6 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
               ],
             ),
             const SizedBox(height: 16),
-            ministriesAsync.when(
-              data: (ministries) => DropdownButtonFormField<String?>(
-                initialValue: _ministryId,
-                decoration: const InputDecoration(labelText: 'Ministério'),
-                items: [
-                  const DropdownMenuItem(
-                    value: null,
-                    child: Text('Sem ministério'),
-                  ),
-                  for (final ministry in ministries)
-                    DropdownMenuItem(
-                      value: ministry.id,
-                      child: Text(ministry.name),
-                    ),
-                ],
-                onChanged: (value) => setState(() => _ministryId = value),
-              ),
-              loading: () => const LinearProgressIndicator(),
-              error: (_, _) => const SizedBox.shrink(),
-            ),
-            const SizedBox(height: 16),
             TextFormField(
               controller: _youtubeController,
               decoration: const InputDecoration(labelText: 'Link do YouTube'),
@@ -241,14 +222,14 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
             const SizedBox(height: 16),
             TextFormField(
               controller: _chordsController,
-              decoration: const InputDecoration(labelText: 'Cifra'),
-              maxLines: 6,
+              decoration: const InputDecoration(labelText: 'Link da cifra'),
+              keyboardType: TextInputType.url,
             ),
             const SizedBox(height: 16),
             TextFormField(
               controller: _lyricsController,
-              decoration: const InputDecoration(labelText: 'Letra'),
-              maxLines: 8,
+              decoration: const InputDecoration(labelText: 'Link da letra'),
+              keyboardType: TextInputType.url,
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -258,15 +239,22 @@ class _SongFormScreenState extends ConsumerState<SongFormScreen> {
               ),
             ],
             const SizedBox(height: 24),
-            ElevatedButton(
-              onPressed: _submitting ? null : _submit,
-              child: _submitting
-                  ? const SizedBox(
-                      height: 20,
-                      width: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Text(_isEditing ? 'Guardar' : 'Criar'),
+            Align(
+              alignment: Alignment.centerRight,
+              child: ElevatedButton(
+                style: _primaryButtonStyle,
+                onPressed: _submitting ? null : _submit,
+                child: _submitting
+                    ? const SizedBox(
+                        height: 14,
+                        width: 14,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.black,
+                        ),
+                      )
+                    : Text(_isEditing ? 'Guardar' : 'Criar'),
+              ),
             ),
           ],
         ),

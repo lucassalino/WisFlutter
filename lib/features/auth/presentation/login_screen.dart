@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/widgets/auth_scaffold.dart';
 import '../../../shared/widgets/password_field.dart';
 import '../../../shared/widgets/wis_logo.dart';
 import '../data/auth_repository.dart';
@@ -53,98 +54,109 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Form(
-              key: _formKey,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  const SizedBox(height: 32),
-                  const Center(child: WisLogo()),
-                  const SizedBox(height: 16),
-                  Text(
-                    'WIS',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  Text(
-                    'WORSHIP IN SYNC',
-                    textAlign: TextAlign.center,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      letterSpacing: 3,
-                      color: Colors.white54,
-                    ),
-                  ),
-                  const SizedBox(height: 40),
-                  TextFormField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.next,
-                    decoration: const InputDecoration(labelText: 'Email'),
-                    validator: (value) =>
-                        (value == null || !value.contains('@'))
-                        ? 'Introduz um email válido'
-                        : null,
-                  ),
-                  const SizedBox(height: 16),
-                  PasswordField(
-                    controller: _passwordController,
-                    label: 'Password',
-                    textInputAction: TextInputAction.done,
-                    onFieldSubmitted: (_) => _submit(),
-                    validator: (value) => (value == null || value.isEmpty)
-                        ? 'Introduz a tua password'
-                        : null,
-                  ),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton(
-                      onPressed: () => context.push('/forgot-password'),
-                      child: const Text('Esqueci a password'),
-                    ),
-                  ),
-                  if (_error != null) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      _error!,
-                      style: TextStyle(
-                        color: Theme.of(context).colorScheme.error,
-                      ),
-                    ),
-                  ],
-                  const SizedBox(height: 16),
-                  ElevatedButton(
-                    onPressed: _submitting ? null : _submit,
-                    child: _submitting
-                        ? const SizedBox(
-                            height: 20,
-                            width: 20,
-                            child: CircularProgressIndicator(strokeWidth: 2),
-                          )
-                        : const Text('Entrar'),
-                  ),
-                  const SizedBox(height: 16),
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      const Text('Não tens conta?'),
-                      TextButton(
-                        onPressed: () => context.push('/register'),
-                        child: const Text('Registar'),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+    return AuthScaffold(
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            const Center(child: WisLogo(size: 72)),
+            const SizedBox(height: 20),
+            const Text(
+              'Entrar',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold),
             ),
-          ),
+            const SizedBox(height: 6),
+            Text(
+              'Introduz os teus dados para entrar.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+            ),
+            const SizedBox(height: 28),
+            TextFormField(
+              controller: _emailController,
+              keyboardType: TextInputType.emailAddress,
+              textInputAction: TextInputAction.next,
+              decoration: const InputDecoration(
+                labelText: 'Email',
+                hintText: 'email@exemplo.com',
+              ),
+              validator: (value) =>
+                  (value == null || !value.contains('@'))
+                  ? 'Introduz um email válido'
+                  : null,
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Password',
+                  style: TextStyle(
+                    color: Colors.white.withValues(alpha: 0.55),
+                    fontSize: 13,
+                  ),
+                ),
+                InkWell(
+                  onTap: () => context.push('/forgot-password'),
+                  child: const Text(
+                    'Esqueci a password',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            PasswordField(
+              controller: _passwordController,
+              hintText: 'Password',
+              textInputAction: TextInputAction.done,
+              onFieldSubmitted: (_) => _submit(),
+              validator: (value) => (value == null || value.isEmpty)
+                  ? 'Introduz a tua password'
+                  : null,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 8),
+              Text(
+                _error!,
+                style: TextStyle(color: Theme.of(context).colorScheme.error),
+              ),
+            ],
+            const SizedBox(height: 20),
+            ElevatedButton(
+              onPressed: _submitting ? null : _submit,
+              child: _submitting
+                  ? const SizedBox(
+                      height: 20,
+                      width: 20,
+                      child: CircularProgressIndicator(
+                        strokeWidth: 2,
+                        color: Colors.black,
+                      ),
+                    )
+                  : const Text('Entrar'),
+            ),
+            const SizedBox(height: 20),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  'Ainda não tens conta? ',
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+                ),
+                InkWell(
+                  onTap: () => context.push('/register'),
+                  child: const Text(
+                    'Criar conta',
+                    style: TextStyle(fontWeight: FontWeight.w600),
+                  ),
+                ),
+              ],
+            ),
+          ],
         ),
       ),
     );

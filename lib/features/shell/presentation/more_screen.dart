@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/state/org_store.dart';
+import '../../../shared/widgets/spotlight_background.dart';
 import '../../members/presentation/members_list_screen.dart';
+import 'app_drawer.dart';
+import 'wis_header_bar.dart';
 import '../../ministries/presentation/ministries_list_screen.dart';
 import '../../notifications/presentation/notifications_providers.dart';
 import '../../notifications/presentation/notifications_screen.dart';
@@ -22,101 +25,112 @@ class MoreScreen extends ConsumerWidget {
     final orgId = membership?.organization.id;
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Mais')),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
-        children: [
-          if (user != null)
-            Card(
-              child: ListTile(
-                leading: const Icon(Icons.person_outline),
-                title: Text(user.email ?? ''),
+      backgroundColor: Colors.transparent,
+      appBar: const WisHeaderBar(),
+      drawer: const AppDrawer(current: AppDrawerItem.none),
+      body: SpotlightBackground(
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            const Padding(
+              padding: EdgeInsets.only(bottom: 12),
+              child: Text(
+                'Mais',
+                style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800),
               ),
             ),
-          const SizedBox(height: 12),
-          if (orgId != null)
-            Card(
-              child: Column(
-                children: [
-                  ListTile(
-                    leading: const Icon(Icons.groups_2_outlined),
-                    title: const Text('Ministérios'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) =>
-                            MinistriesListScreen(orgId: orgId),
+            if (user != null)
+              Card(
+                child: ListTile(
+                  leading: const Icon(Icons.person_outline),
+                  title: Text(user.email ?? ''),
+                ),
+              ),
+            const SizedBox(height: 12),
+            if (orgId != null)
+              Card(
+                child: Column(
+                  children: [
+                    ListTile(
+                      leading: const Icon(Icons.groups_2_outlined),
+                      title: const Text('Ministérios'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) =>
+                              MinistriesListScreen(orgId: orgId),
+                        ),
                       ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.people_outline),
-                    title: const Text('Pessoas'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => MembersListScreen(orgId: orgId),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.people_outline),
+                      title: const Text('Pessoas'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => MembersListScreen(orgId: orgId),
+                        ),
                       ),
                     ),
-                  ),
-                  const Divider(height: 1),
-                  Consumer(
-                    builder: (context, ref, _) {
-                      final unread = ref.watch(
-                        unreadNotificationsCountProvider,
-                      );
-                      return ListTile(
-                        leading: const Icon(Icons.notifications_outlined),
-                        title: const Text('Notificações'),
-                        trailing: Row(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            if (unread > 0)
-                              Container(
-                                margin: const EdgeInsets.only(right: 8),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context).colorScheme.error,
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  '$unread',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 12,
+                    const Divider(height: 1),
+                    Consumer(
+                      builder: (context, ref, _) {
+                        final unread = ref.watch(
+                          unreadNotificationsCountProvider,
+                        );
+                        return ListTile(
+                          leading: const Icon(Icons.notifications_outlined),
+                          title: const Text('Notificações'),
+                          trailing: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (unread > 0)
+                                Container(
+                                  margin: const EdgeInsets.only(right: 8),
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 2,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context).colorScheme.error,
+                                    borderRadius: BorderRadius.circular(999),
+                                  ),
+                                  child: Text(
+                                    '$unread',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontSize: 12,
+                                    ),
                                   ),
                                 ),
-                              ),
-                            const Icon(Icons.chevron_right),
-                          ],
-                        ),
-                        onTap: () => Navigator.of(context).push(
-                          MaterialPageRoute(
-                            builder: (context) => const NotificationsScreen(),
+                              const Icon(Icons.chevron_right),
+                            ],
                           ),
+                          onTap: () => Navigator.of(context).push(
+                            MaterialPageRoute(
+                              builder: (context) => const NotificationsScreen(),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      leading: const Icon(Icons.settings_outlined),
+                      title: const Text('Definições'),
+                      trailing: const Icon(Icons.chevron_right),
+                      onTap: () => Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => const SettingsScreen(),
                         ),
-                      );
-                    },
-                  ),
-                  const Divider(height: 1),
-                  ListTile(
-                    leading: const Icon(Icons.settings_outlined),
-                    title: const Text('Definições'),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => Navigator.of(context).push(
-                      MaterialPageRoute(
-                        builder: (context) => const SettingsScreen(),
                       ),
                     ),
-                  ),
-                ],
+                  ],
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }

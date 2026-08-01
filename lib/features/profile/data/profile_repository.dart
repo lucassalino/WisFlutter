@@ -2,10 +2,18 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../core/supabase/supabase_providers.dart';
+import '../../../shared/state/refresh_tick.dart';
 import '../../auth/domain/profile.dart';
 
 final profileRepositoryProvider = Provider<ProfileRepository>((ref) {
   return ProfileRepository(ref.watch(supabaseClientProvider));
+});
+
+/// Perfil do utilizador autenticado — usado pelo drawer/rodapé para mostrar
+/// nome e foto sem repetir o fetch em cada ecrã.
+final myProfileProvider = FutureProvider<Profile>((ref) {
+  ref.watch(refreshTickProvider);
+  return ref.watch(profileRepositoryProvider).fetchProfile();
 });
 
 class ProfileRepository {

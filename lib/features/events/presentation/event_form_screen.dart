@@ -6,7 +6,9 @@ import '../../../shared/constants/ministry_constants.dart';
 import '../../../shared/data/storage_repository.dart';
 import '../../../shared/domain/event.dart';
 import '../../../shared/state/refresh_tick.dart';
+import '../../../shared/utils/hex_color.dart';
 import '../../../shared/utils/image_picker_helper.dart';
+import '../../../shared/widgets/spotlight_background.dart';
 import '../../ministries/domain/ministry.dart';
 import '../../ministries/domain/ministry_member.dart';
 import '../../ministries/presentation/ministries_providers.dart';
@@ -14,6 +16,37 @@ import '../../songs/domain/song.dart';
 import '../../songs/presentation/songs_providers.dart';
 import '../data/events_repository.dart';
 import '../domain/event_timeline_item.dart';
+
+const _stepMeta = [
+  (label: 'Informações', eyebrow: 'NOME, DATA, HORÁRIO E LOCAL'),
+  (label: 'Ministérios', eyebrow: 'QUAIS EQUIPAS PARTICIPAM'),
+  (label: 'Integrantes', eyebrow: 'ESCALA DE MEMBROS'),
+  (label: 'Setlist', eyebrow: 'MÚSICAS DO EVENTO'),
+  (label: 'Roteiro', eyebrow: 'HORÁRIOS DO EVENTO'),
+];
+
+final _cardDecoration = BoxDecoration(
+  color: Colors.white.withValues(alpha: 0.04),
+  border: Border.all(color: Colors.white.withValues(alpha: 0.09)),
+  borderRadius: BorderRadius.circular(14),
+);
+
+final _ghostButtonStyle = OutlinedButton.styleFrom(
+  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+  minimumSize: Size.zero,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  backgroundColor: Colors.white.withValues(alpha: 0.06),
+  foregroundColor: Colors.white.withValues(alpha: 0.6),
+  side: BorderSide(color: Colors.white.withValues(alpha: 0.1)),
+  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+);
+
+final _primaryButtonStyle = ElevatedButton.styleFrom(
+  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+  minimumSize: Size.zero,
+  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+  textStyle: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+);
 
 /// Criar/editar evento — wizard com 5 passos (Informação, Ministérios,
 /// Integrantes, Setlist, Roteiro) e um único botão Gravar/Criar que grava
@@ -29,14 +62,14 @@ class EventFormScreen extends ConsumerStatefulWidget {
   ConsumerState<EventFormScreen> createState() => _EventFormScreenState();
 }
 
-class _EventFormScreenState extends ConsumerState<EventFormScreen>
-    with SingleTickerProviderStateMixin {
-  late final TabController _tabController;
+class _EventFormScreenState extends ConsumerState<EventFormScreen> {
+  int _step = 0;
   final _nameController = TextEditingController();
   final _locationController = TextEditingController();
   final _descriptionController = TextEditingController();
   final _observationsController = TextEditingController();
   final _timelineTitleController = TextEditingController();
+  final _songSearchController = TextEditingController();
 
   DateTime _date = DateTime.now();
   TimeOfDay _time = TimeOfDay.now();
@@ -49,8 +82,9 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
   Map<String, List<EventScheduleAssignment>> _membersByMinistry = {};
   List<String> _songIds = [];
   Map<String, String> _songKeys = {};
+  String _songSearch = '';
   List<EventTimelineItem> _timeline = [];
-  TimeOfDay _newTimelineTime = const TimeOfDay(hour: 9, minute: 0);
+  TimeOfDay? _newTimelineTime;
 
   bool _loading = true;
   bool _submitting = false;
@@ -61,7 +95,6 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 5, vsync: this);
     final event = widget.event;
     if (event != null) {
       _nameController.text = event.name;
@@ -96,12 +129,12 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
 
   @override
   void dispose() {
-    _tabController.dispose();
     _nameController.dispose();
     _locationController.dispose();
     _descriptionController.dispose();
     _observationsController.dispose();
     _timelineTitleController.dispose();
+    _songSearchController.dispose();
     super.dispose();
   }
 
@@ -130,8 +163,10 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
 
   Future<void> _submit() async {
     if (_nameController.text.trim().isEmpty) {
-      _tabController.index = 0;
-      setState(() => _error = 'Introduz um nome para o evento');
+      setState(() {
+        _step = 0;
+        _error = 'Introduz um nome para o evento';
+      });
       return;
     }
     setState(() {
@@ -192,77 +227,314 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
     if (_loading) {
       return const Scaffold(body: Center(child: CircularProgressIndicator()));
     }
+    final meta = _stepMeta[_step];
+
     return Scaffold(
-      appBar: AppBar(
-        title: Text(_isEditing ? 'Editar evento' : 'Novo evento'),
-        bottom: TabBar(
-          controller: _tabController,
-          isScrollable: true,
-          tabs: const [
-            Tab(text: 'Informação'),
-            Tab(text: 'Ministérios'),
-            Tab(text: 'Integrantes'),
-            Tab(text: 'Setlist'),
-            Tab(text: 'Roteiro'),
-          ],
+      backgroundColor: Colors.transparent,
+      body: SpotlightBackground(
+        child: SafeArea(
+          child: Column(
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+                child: Row(
+                  children: [
+                    InkWell(
+                      onTap: () => Navigator.of(context).pop(),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.arrow_back,
+                            size: 15,
+                            color: Colors.white.withValues(alpha: 0.55),
+                          ),
+                          const SizedBox(width: 6),
+                          Text(
+                            'Eventos',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.55),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              Expanded(
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+                  children: [
+                    Text(
+                      _isEditing ? 'Editar evento' : 'Novo evento',
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ShaderMask(
+                      shaderCallback: (rect) => const LinearGradient(
+                        begin: Alignment.centerLeft,
+                        end: Alignment.centerRight,
+                        colors: [
+                          Colors.white,
+                          Colors.white,
+                          Colors.transparent,
+                        ],
+                        stops: [0.0, 0.88, 1.0],
+                      ).createShader(rect),
+                      blendMode: BlendMode.dstIn,
+                      child: SingleChildScrollView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.only(right: 28),
+                        child: Row(
+                          children: [
+                            for (var i = 0; i < _stepMeta.length; i++) ...[
+                              _StepPill(
+                                index: i,
+                                label: _stepMeta[i].label,
+                                active: _step == i,
+                                onTap: () => setState(() => _step = i),
+                              ),
+                              const SizedBox(width: 6),
+                            ],
+                          ],
+                        ),
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    Text(
+                      meta.eyebrow,
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 1.4,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      meta.label,
+                      style: const TextStyle(
+                        fontSize: 22,
+                        fontWeight: FontWeight.w800,
+                        letterSpacing: -0.3,
+                      ),
+                    ),
+                    const SizedBox(height: 20),
+                    if (_error != null) ...[
+                      Text(
+                        _error!,
+                        style: TextStyle(
+                          color: Theme.of(context).colorScheme.error,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                    ],
+                    switch (_step) {
+                      0 => _buildInfoStep(),
+                      1 => _buildMinistriesStep(),
+                      2 => _buildMembersStep(),
+                      3 => _buildSetlistStep(),
+                      _ => _buildTimelineStep(),
+                    },
+                  ],
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 12, 20, 12),
+                decoration: BoxDecoration(
+                  border: Border(
+                    top: BorderSide(
+                      color: Colors.white.withValues(alpha: 0.08),
+                    ),
+                  ),
+                ),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.end,
+                  children: [
+                    OutlinedButton(
+                      style: _ghostButtonStyle,
+                      onPressed: _submitting
+                          ? null
+                          : () => Navigator.of(context).pop(),
+                      child: const Text('Cancelar'),
+                    ),
+                    const SizedBox(width: 10),
+                    ElevatedButton(
+                      style: _primaryButtonStyle,
+                      onPressed: _submitting ? null : _submit,
+                      child: _submitting
+                          ? const SizedBox(
+                              height: 14,
+                              width: 14,
+                              child: CircularProgressIndicator(
+                                strokeWidth: 2,
+                                color: Colors.black,
+                              ),
+                            )
+                          : Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.check, size: 14),
+                                const SizedBox(width: 6),
+                                Text(
+                                  _isEditing
+                                      ? 'Gravar alterações'
+                                      : 'Criar evento',
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
         ),
-      ),
-      body: Column(
-        children: [
-          if (_error != null)
-            Padding(
-              padding: const EdgeInsets.all(12),
-              child: Text(
-                _error!,
-                style: TextStyle(color: Theme.of(context).colorScheme.error),
-              ),
-            ),
-          Expanded(
-            child: TabBarView(
-              controller: _tabController,
-              children: [
-                _buildInfoTab(),
-                _buildMinistriesTab(),
-                _buildMembersTab(),
-                _buildSetlistTab(),
-                _buildTimelineTab(),
-              ],
-            ),
-          ),
-          SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: ElevatedButton(
-                onPressed: _submitting ? null : _submit,
-                child: _submitting
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(_isEditing ? 'Guardar' : 'Criar'),
-              ),
-            ),
-          ),
-        ],
       ),
     );
   }
 
   // ── Passo 1: Informação ──────────────────────────────────────────────
 
-  Widget _buildInfoTab() {
-    return ListView(
-      padding: const EdgeInsets.all(16),
+  Widget _buildInfoStep() {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        _FieldLabel('Nome', required: true),
+        TextField(
+          controller: _nameController,
+          decoration: const InputDecoration(hintText: 'Nome do evento'),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _FieldLabel('Data', required: true),
+                  _PickerField(
+                    text:
+                        '${_date.day.toString().padLeft(2, '0')}/${_date.month.toString().padLeft(2, '0')}/${_date.year}',
+                    onTap: () async {
+                      final picked = await showDatePicker(
+                        context: context,
+                        initialDate: _date,
+                        firstDate: DateTime(2020),
+                        lastDate: DateTime(2100),
+                      );
+                      if (picked != null) setState(() => _date = picked);
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _FieldLabel('Horário', required: true),
+                  _PickerField(
+                    text: _time.format(context),
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime: _time,
+                      );
+                      if (picked != null) setState(() => _time = picked);
+                    },
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        _FieldLabel('Hora de chegada da equipa'),
+        _PickerField(
+          text: _arrivalTime?.format(context),
+          placeholder: '--:--',
+          onTap: () async {
+            final picked = await showTimePicker(
+              context: context,
+              initialTime: _arrivalTime ?? _time,
+            );
+            if (picked != null) setState(() => _arrivalTime = picked);
+          },
+          onClear: _arrivalTime != null
+              ? () => setState(() => _arrivalTime = null)
+              : null,
+        ),
+        const SizedBox(height: 4),
+        Text(
+          'Opcional — a que horas a equipa deve chegar (ensaio/passagem de som).',
+          style: TextStyle(
+            fontSize: 11,
+            color: Colors.white.withValues(alpha: 0.4),
+          ),
+        ),
+        const SizedBox(height: 16),
+        _FieldLabel('Local'),
+        TextField(
+          controller: _locationController,
+          decoration: const InputDecoration(hintText: 'Local do evento'),
+        ),
+        const SizedBox(height: 16),
+        _FieldLabel('Descrição'),
+        TextField(
+          controller: _descriptionController,
+          decoration: const InputDecoration(hintText: 'Descrição do evento'),
+          maxLines: 3,
+        ),
+        const SizedBox(height: 16),
+        _FieldLabel('Observações'),
+        TextField(
+          controller: _observationsController,
+          decoration: const InputDecoration(hintText: 'Observações internas'),
+          maxLines: 2,
+        ),
+        const SizedBox(height: 16),
+        InkWell(
+          onTap: () => setState(() => _isPublished = !_isPublished),
+          child: Row(
+            children: [
+              Checkbox(
+                value: _isPublished,
+                onChanged: (value) =>
+                    setState(() => _isPublished = value ?? false),
+              ),
+              const SizedBox(width: 4),
+              Text(
+                'Publicar evento',
+                style: TextStyle(
+                  fontSize: 14,
+                  color: Colors.white.withValues(alpha: 0.75),
+                ),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: 20),
+        _FieldLabel('Imagem de capa'),
         GestureDetector(
           onTap: _uploadingCover ? null : _pickCoverImage,
           child: Container(
-            height: 140,
+            height: 180,
             width: double.infinity,
             decoration: BoxDecoration(
-              color: Theme.of(context).colorScheme.surfaceContainerHighest,
+              color: Colors.white.withValues(alpha: 0.03),
               borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: Colors.white.withValues(alpha: 0.15),
+                style: BorderStyle.solid,
+              ),
               image: _coverImageUrl != null
                   ? DecorationImage(
                       image: NetworkImage(_coverImageUrl!),
@@ -274,112 +546,45 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
             child: _uploadingCover
                 ? const CircularProgressIndicator()
                 : _coverImageUrl == null
-                ? const Column(
+                ? Column(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Icon(Icons.add_photo_alternate_outlined, size: 32),
-                      SizedBox(height: 4),
-                      Text('Imagem de capa'),
+                      Icon(
+                        Icons.add_photo_alternate_outlined,
+                        size: 28,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        'Clica para adicionar imagem',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: Colors.white.withValues(alpha: 0.3),
+                        ),
+                      ),
                     ],
                   )
                 : Align(
                     alignment: Alignment.topRight,
-                    child: IconButton(
-                      icon: const Icon(Icons.close, color: Colors.white),
-                      onPressed: () => setState(() => _coverImageUrl = null),
+                    child: Padding(
+                      padding: const EdgeInsets.all(8),
+                      child: CircleAvatar(
+                        radius: 14,
+                        backgroundColor: Colors.black54,
+                        child: IconButton(
+                          padding: EdgeInsets.zero,
+                          icon: const Icon(
+                            Icons.close,
+                            color: Colors.white,
+                            size: 16,
+                          ),
+                          onPressed: () =>
+                              setState(() => _coverImageUrl = null),
+                        ),
+                      ),
                     ),
                   ),
           ),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _nameController,
-          decoration: const InputDecoration(labelText: 'Nome do evento'),
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await showDatePicker(
-                    context: context,
-                    initialDate: _date,
-                    firstDate: DateTime(2020),
-                    lastDate: DateTime(2100),
-                  );
-                  if (picked != null) setState(() => _date = picked);
-                },
-                icon: const Icon(Icons.calendar_today_outlined),
-                label: Text('${_date.day}/${_date.month}/${_date.year}'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _time,
-                  );
-                  if (picked != null) setState(() => _time = picked);
-                },
-                icon: const Icon(Icons.access_time_outlined),
-                label: Text(_time.format(context)),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        Row(
-          children: [
-            Expanded(
-              child: OutlinedButton.icon(
-                onPressed: () async {
-                  final picked = await showTimePicker(
-                    context: context,
-                    initialTime: _arrivalTime ?? _time,
-                  );
-                  if (picked != null) setState(() => _arrivalTime = picked);
-                },
-                icon: const Icon(Icons.login_outlined),
-                label: Text(
-                  _arrivalTime != null
-                      ? 'Chegada: ${_arrivalTime!.format(context)}'
-                      : 'Hora de chegada',
-                ),
-              ),
-            ),
-            if (_arrivalTime != null)
-              IconButton(
-                icon: const Icon(Icons.clear),
-                onPressed: () => setState(() => _arrivalTime = null),
-              ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _locationController,
-          decoration: const InputDecoration(labelText: 'Local'),
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _descriptionController,
-          decoration: const InputDecoration(labelText: 'Descrição'),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _observationsController,
-          decoration: const InputDecoration(labelText: 'Observações'),
-          maxLines: 3,
-        ),
-        const SizedBox(height: 16),
-        SwitchListTile(
-          value: _isPublished,
-          onChanged: (value) => setState(() => _isPublished = value),
-          title: const Text('Publicado'),
-          contentPadding: EdgeInsets.zero,
         ),
       ],
     );
@@ -387,28 +592,39 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
 
   // ── Passo 2: Ministérios ─────────────────────────────────────────────
 
-  Widget _buildMinistriesTab() {
+  Widget _buildMinistriesStep() {
     final ministriesAsync = ref.watch(ministriesListProvider(widget.orgId));
     return ministriesAsync.when(
       data: (ministries) {
         final active = ministries.where((m) => m.isActive).toList();
-        return ListView(
-          padding: const EdgeInsets.all(16),
-          children: [
-            for (final ministry in active)
-              CheckboxListTile(
-                value: _selectedMinistryIds.contains(ministry.id),
-                title: Text('${ministry.icon} ${ministry.name}'),
-                onChanged: (checked) => setState(() {
-                  if (checked == true) {
-                    _selectedMinistryIds.add(ministry.id);
-                  } else {
-                    _selectedMinistryIds.remove(ministry.id);
-                    _membersByMinistry.remove(ministry.id);
-                  }
-                }),
-              ),
-          ],
+        if (active.isEmpty) {
+          return const _EmptyBox(
+            icon: Icons.grid_view_outlined,
+            message: 'Nenhum ministério ativo.',
+          );
+        }
+        return Container(
+          decoration: _cardDecoration,
+          clipBehavior: Clip.antiAlias,
+          child: Column(
+            children: [
+              for (var i = 0; i < active.length; i++)
+                _MinistryCheckRow(
+                  ministry: active[i],
+                  checked: _selectedMinistryIds.contains(active[i].id),
+                  showDivider: i < active.length - 1,
+                  onToggle: () => setState(() {
+                    final id = active[i].id;
+                    if (_selectedMinistryIds.contains(id)) {
+                      _selectedMinistryIds.remove(id);
+                      _membersByMinistry.remove(id);
+                    } else {
+                      _selectedMinistryIds.add(id);
+                    }
+                  }),
+                ),
+            ],
+          ),
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -418,219 +634,195 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
 
   // ── Passo 3: Integrantes ─────────────────────────────────────────────
 
-  Widget _buildMembersTab() {
+  Widget _buildMembersStep() {
     if (_selectedMinistryIds.isEmpty) {
-      return const Center(
-        child: Text('Seleciona ministérios no passo anterior.'),
+      return _EmptyBox(
+        icon: Icons.people_outline,
+        message: 'Nenhum ministério selecionado.',
+        actionLabel: '← Selecionar ministérios',
+        onAction: () => setState(() => _step = 1),
       );
     }
+    final totalSelected = _membersByMinistry.values.fold<int>(
+      0,
+      (acc, list) => acc + list.length,
+    );
     final ministriesAsync = ref.watch(ministriesListProvider(widget.orgId));
     return ministriesAsync.when(
       data: (ministries) {
         final selected = ministries
             .where((m) => _selectedMinistryIds.contains(m.id))
             .toList();
-        return ListView(
-          padding: const EdgeInsets.all(16),
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (final ministry in selected)
-              _buildMinistryMembersCard(ministry),
+            if (totalSelected > 0) ...[
+              Text.rich(
+                TextSpan(
+                  children: [
+                    TextSpan(
+                      text: '$totalSelected',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    TextSpan(
+                      text:
+                          ' membro${totalSelected != 1 ? 's' : ''} selecionado${totalSelected != 1 ? 's' : ''}',
+                    ),
+                  ],
+                ),
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.white.withValues(alpha: 0.45),
+                ),
+              ),
+              const SizedBox(height: 12),
+            ],
+            for (final ministry in selected) ...[
+              _MinistryMembersCard(
+                ministry: ministry,
+                assigned: _membersByMinistry[ministry.id] ?? const [],
+                onToggleMember: (userId) => setState(() {
+                  final list = _membersByMinistry[ministry.id] ?? [];
+                  final has = list.any((a) => a.userId == userId);
+                  if (has) {
+                    list.removeWhere((a) => a.userId == userId);
+                  } else {
+                    list.add(
+                      EventScheduleAssignment(
+                        userId: userId,
+                        functions: const [],
+                      ),
+                    );
+                  }
+                  _membersByMinistry[ministry.id] = list;
+                }),
+                onToggleFunction: (userId, fn) => setState(() {
+                  final list = _membersByMinistry[ministry.id]!;
+                  final index = list.indexWhere((a) => a.userId == userId);
+                  final assignment = list[index];
+                  final updated = {...assignment.functions};
+                  if (updated.contains(fn)) {
+                    updated.remove(fn);
+                  } else {
+                    updated.add(fn);
+                  }
+                  list[index] = EventScheduleAssignment(
+                    userId: userId,
+                    functions: updated.toList(),
+                  );
+                }),
+              ),
+              const SizedBox(height: 12),
+            ],
           ],
         );
       },
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (error, _) => Center(child: Text('Erro: $error')),
-    );
-  }
-
-  Widget _buildMinistryMembersCard(Ministry ministry) {
-    final membersAsync = ref.watch(ministryMembersProvider(ministry.id));
-    final assigned = _membersByMinistry[ministry.id] ?? const [];
-
-    return Card(
-      margin: const EdgeInsets.only(bottom: 16),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    '${ministry.icon} ${ministry.name}',
-                    style: Theme.of(context).textTheme.titleSmall,
-                  ),
-                ),
-                membersAsync.maybeWhen(
-                  data: (members) => IconButton(
-                    icon: const Icon(Icons.person_add_alt_outlined),
-                    onPressed: () =>
-                        _pickMemberToAssign(ministry.id, members, assigned),
-                  ),
-                  orElse: () => const SizedBox.shrink(),
-                ),
-              ],
-            ),
-            membersAsync.when(
-              data: (members) {
-                if (assigned.isEmpty) {
-                  return const Padding(
-                    padding: EdgeInsets.symmetric(vertical: 8),
-                    child: Text('Ninguém escalado ainda.'),
-                  );
-                }
-                return Column(
-                  children: [
-                    for (final assignment in assigned)
-                      _buildAssignmentTile(ministry, members, assignment),
-                  ],
-                );
-              },
-              loading: () => const Padding(
-                padding: EdgeInsets.symmetric(vertical: 8),
-                child: LinearProgressIndicator(),
-              ),
-              error: (error, _) => Text('Erro: $error'),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildAssignmentTile(
-    Ministry ministry,
-    List<MinistryMember> members,
-    EventScheduleAssignment assignment,
-  ) {
-    final person = members.firstWhere(
-      (m) => m.userId == assignment.userId,
-      orElse: () => MinistryMember(
-        userId: assignment.userId,
-        fullName: 'Pessoa',
-        functions: [],
-      ),
-    );
-    return ListTile(
-      contentPadding: EdgeInsets.zero,
-      title: Text(person.fullName),
-      subtitle: Wrap(
-        spacing: 6,
-        children: [
-          for (final key in person.functions)
-            FilterChip(
-              label: Text(
-                '${functionEmoji(key)} ${functionLabel(key)}',
-                style: const TextStyle(fontSize: 12),
-              ),
-              selected: assignment.functions.contains(key),
-              onSelected: (selected) => setState(() {
-                final list = _membersByMinistry[ministry.id]!;
-                final index = list.indexWhere(
-                  (a) => a.userId == assignment.userId,
-                );
-                final updatedFunctions = {...assignment.functions};
-                if (selected) {
-                  updatedFunctions.add(key);
-                } else {
-                  updatedFunctions.remove(key);
-                }
-                list[index] = EventScheduleAssignment(
-                  userId: assignment.userId,
-                  functions: updatedFunctions.toList(),
-                );
-              }),
-            ),
-        ],
-      ),
-      trailing: IconButton(
-        icon: const Icon(Icons.close),
-        onPressed: () => setState(() {
-          _membersByMinistry[ministry.id]!.removeWhere(
-            (a) => a.userId == assignment.userId,
-          );
-        }),
-      ),
-    );
-  }
-
-  void _pickMemberToAssign(
-    String ministryId,
-    List<MinistryMember> members,
-    List<EventScheduleAssignment> assigned,
-  ) {
-    final assignedIds = assigned.map((a) => a.userId).toSet();
-    final available = members
-        .where((m) => !assignedIds.contains(m.userId))
-        .toList();
-    showModalBottomSheet<void>(
-      context: context,
-      builder: (context) => SafeArea(
-        child: available.isEmpty
-            ? const Padding(
-                padding: EdgeInsets.all(24),
-                child: Text(
-                  'Todos os membros deste ministério já estão escalados.',
-                ),
-              )
-            : ListView(
-                shrinkWrap: true,
-                children: [
-                  for (final person in available)
-                    ListTile(
-                      title: Text(person.fullName),
-                      onTap: () {
-                        setState(() {
-                          (_membersByMinistry[ministryId] ??= []).add(
-                            EventScheduleAssignment(
-                              userId: person.userId,
-                              functions: const [],
-                            ),
-                          );
-                        });
-                        Navigator.of(context).pop();
-                      },
-                    ),
-                ],
-              ),
-      ),
     );
   }
 
   // ── Passo 4: Setlist ─────────────────────────────────────────────────
 
-  Widget _buildSetlistTab() {
+  Widget _buildSetlistStep() {
     final songsAsync = ref.watch(songsListProvider(widget.orgId));
     return songsAsync.when(
       data: (songs) {
-        final available = songs.where((s) => !_songIds.contains(s.id)).toList();
-        return ListView(
-          padding: const EdgeInsets.all(16),
+        final filtered = _songSearch.isEmpty
+            ? songs
+            : songs
+                  .where(
+                    (s) =>
+                        s.name.toLowerCase().contains(_songSearch) ||
+                        (s.artist?.toLowerCase().contains(_songSearch) ??
+                            false),
+                  )
+                  .toList();
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            if (_songIds.isNotEmpty) ...[
-              Text('Repertório', style: Theme.of(context).textTheme.labelLarge),
-              const SizedBox(height: 8),
-              for (final songId in _songIds) _buildSetlistTile(songs, songId),
-              const SizedBox(height: 16),
-            ],
-            Text(
-              'Adicionar música',
-              style: Theme.of(context).textTheme.labelLarge,
+            TextField(
+              controller: _songSearchController,
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search, size: 20),
+                hintText: 'Pesquisar músicas...',
+              ),
+              onChanged: (value) =>
+                  setState(() => _songSearch = value.toLowerCase()),
             ),
-            const SizedBox(height: 8),
-            for (final song in available)
-              ListTile(
-                dense: true,
-                title: Text(song.name),
-                subtitle: song.artist != null ? Text(song.artist!) : null,
-                trailing: const Icon(Icons.add),
-                onTap: () => setState(() {
-                  _songIds.add(song.id);
-                  if (song.musicalKey != null) {
-                    _songKeys[song.id] = song.musicalKey!;
-                  }
-                }),
+            const SizedBox(height: 12),
+            Container(
+              constraints: const BoxConstraints(maxHeight: 340),
+              decoration: _cardDecoration,
+              clipBehavior: Clip.antiAlias,
+              child: filtered.isEmpty
+                  ? _EmptyBox(
+                      icon: Icons.queue_music_outlined,
+                      message: _songSearch.isNotEmpty
+                          ? 'Nenhuma música encontrada.'
+                          : 'Nenhuma música criada ainda.',
+                    )
+                  : SingleChildScrollView(
+                      child: Column(
+                        children: [
+                          for (var i = 0; i < filtered.length; i++)
+                            _SongCheckRow(
+                              song: filtered[i],
+                              checked: _songIds.contains(filtered[i].id),
+                              showDivider: i < filtered.length - 1,
+                              onToggle: () => _toggleSong(filtered[i]),
+                            ),
+                        ],
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 20),
+            Text(
+              'SETLIST SELECCIONADO (${_songIds.length})',
+              style: TextStyle(
+                fontSize: 10,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 1.4,
+                color: Colors.white.withValues(alpha: 0.3),
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (_songIds.isEmpty)
+              const _EmptyBox(
+                icon: Icons.music_note_outlined,
+                message: 'Nenhuma música seleccionada',
+              )
+            else
+              Container(
+                decoration: _cardDecoration,
+                clipBehavior: Clip.antiAlias,
+                child: Column(
+                  children: [
+                    for (var i = 0; i < _songIds.length; i++)
+                      _SelectedSongRow(
+                        index: i + 1,
+                        song: songs.firstWhere(
+                          (s) => s.id == _songIds[i],
+                          orElse: () => Song(
+                            id: _songIds[i],
+                            orgId: widget.orgId,
+                            name: 'Música',
+                          ),
+                        ),
+                        selectedKey: _songKeys[_songIds[i]],
+                        showDivider: i < _songIds.length - 1,
+                        onKeyChanged: (key) =>
+                            setState(() => _songKeys[_songIds[i]] = key),
+                        onRemove: () => setState(() {
+                          _songKeys.remove(_songIds[i]);
+                          _songIds.removeAt(i);
+                        }),
+                      ),
+                  ],
+                ),
               ),
           ],
         );
@@ -640,102 +832,902 @@ class _EventFormScreenState extends ConsumerState<EventFormScreen>
     );
   }
 
-  Widget _buildSetlistTile(List<Song> songs, String songId) {
-    final song = songs.firstWhere(
-      (s) => s.id == songId,
-      orElse: () => Song(id: songId, orgId: widget.orgId, name: 'Música'),
-    );
-    return Card(
-      margin: const EdgeInsets.only(bottom: 8),
-      child: ListTile(
-        title: Text(song.name),
-        subtitle: song.artist != null ? Text(song.artist!) : null,
-        trailing: Row(
-          mainAxisSize: MainAxisSize.min,
+  void _toggleSong(Song song) {
+    setState(() {
+      if (_songIds.contains(song.id)) {
+        _songIds.remove(song.id);
+        _songKeys.remove(song.id);
+      } else {
+        _songIds.add(song.id);
+        if (song.musicalKey != null) _songKeys[song.id] = song.musicalKey!;
+      }
+    });
+  }
+
+  // ── Passo 5: Roteiro ─────────────────────────────────────────────────
+
+  Widget _buildTimelineStep() {
+    final sorted = [..._timeline]..sort(EventTimelineItem.compare);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          'Opcional — os momentos do evento (chegada, ensaio, devocional, início do culto…), por ordem de hora.',
+          style: TextStyle(
+            fontSize: 13,
+            color: Colors.white.withValues(alpha: 0.4),
+          ),
+        ),
+        const SizedBox(height: 16),
+        Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            DropdownButton<String>(
-              value: _songKeys[songId],
-              hint: const Text('Tom'),
-              items: [
-                for (final key in songKeys)
-                  DropdownMenuItem(value: key, child: Text(key)),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _FieldLabel('Hora'),
+                  _PickerField(
+                    text: _newTimelineTime?.format(context),
+                    placeholder: '--:--',
+                    onTap: () async {
+                      final picked = await showTimePicker(
+                        context: context,
+                        initialTime:
+                            _newTimelineTime ??
+                            const TimeOfDay(hour: 9, minute: 0),
+                      );
+                      if (picked != null) {
+                        setState(() => _newTimelineTime = picked);
+                      }
+                    },
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _FieldLabel('Momento'),
+                  TextField(
+                    controller: _timelineTitleController,
+                    decoration: const InputDecoration(
+                      hintText: 'Ex: Início do ensaio',
+                    ),
+                    onSubmitted: (_) => _addTimelineItem(),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        OutlinedButton.icon(
+          style: _ghostButtonStyle,
+          onPressed: _addTimelineItem,
+          icon: const Icon(Icons.add, size: 14),
+          label: const Text('Adicionar momento'),
+        ),
+        const SizedBox(height: 16),
+        if (sorted.isEmpty)
+          const _EmptyBox(
+            icon: Icons.access_time,
+            message: 'Nenhum momento adicionado',
+          )
+        else
+          Container(
+            decoration: _cardDecoration,
+            clipBehavior: Clip.antiAlias,
+            child: Column(
+              children: [
+                for (var i = 0; i < sorted.length; i++)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 16,
+                      vertical: 12,
+                    ),
+                    decoration: BoxDecoration(
+                      border: i < sorted.length - 1
+                          ? Border(
+                              bottom: BorderSide(
+                                color: Colors.white.withValues(alpha: 0.06),
+                              ),
+                            )
+                          : null,
+                    ),
+                    child: Row(
+                      children: [
+                        SizedBox(
+                          width: 48,
+                          child: Text(
+                            sorted[i].timeLabel,
+                            style: const TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ),
+                        Expanded(
+                          child: Text(
+                            sorted[i].title,
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: Colors.white.withValues(alpha: 0.8),
+                            ),
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.close, size: 16),
+                          color: Colors.white.withValues(alpha: 0.3),
+                          onPressed: () =>
+                              setState(() => _timeline.remove(sorted[i])),
+                        ),
+                      ],
+                    ),
+                  ),
               ],
-              onChanged: (value) => setState(() {
-                if (value != null) _songKeys[songId] = value;
-              }),
             ),
-            IconButton(
-              icon: const Icon(Icons.close),
-              onPressed: () => setState(() {
-                _songIds.remove(songId);
-                _songKeys.remove(songId);
-              }),
+          ),
+      ],
+    );
+  }
+
+  void _addTimelineItem() {
+    if (_newTimelineTime == null ||
+        _timelineTitleController.text.trim().isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Preenche a hora e o título do momento')),
+      );
+      return;
+    }
+    setState(() {
+      _timeline.add(
+        EventTimelineItem(
+          time: _newTimelineTime!,
+          title: _timelineTitleController.text.trim(),
+        ),
+      );
+      _timelineTitleController.clear();
+      _newTimelineTime = null;
+    });
+  }
+}
+
+// ── Widgets partilhados ────────────────────────────────────────────────────
+
+class _StepPill extends StatelessWidget {
+  const _StepPill({
+    required this.index,
+    required this.label,
+    required this.active,
+    required this.onTap,
+  });
+
+  final int index;
+  final String label;
+  final bool active;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        decoration: BoxDecoration(
+          color: active ? Colors.white : Colors.white.withValues(alpha: 0.06),
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: active ? Colors.white : Colors.white.withValues(alpha: 0.1),
+          ),
+        ),
+        child: Text(
+          '${index + 1}. $label',
+          style: TextStyle(
+            fontSize: 12,
+            fontWeight: active ? FontWeight.w600 : FontWeight.w500,
+            color: active ? Colors.black : Colors.white.withValues(alpha: 0.55),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FieldLabel extends StatelessWidget {
+  const _FieldLabel(this.text, {this.required = false});
+
+  final String text;
+  final bool required;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 6),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.55),
             ),
+          ),
+          if (required)
+            const Text(
+              ' *',
+              style: TextStyle(color: Color(0xFFF87171), fontSize: 13),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PickerField extends StatelessWidget {
+  const _PickerField({
+    required this.text,
+    this.placeholder = '',
+    required this.onTap,
+    this.onClear,
+  });
+
+  final String? text;
+  final String placeholder;
+  final VoidCallback onTap;
+  final VoidCallback? onClear;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      borderRadius: BorderRadius.circular(8),
+      onTap: onTap,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        decoration: BoxDecoration(
+          color: Colors.white.withValues(alpha: 0.05),
+          border: Border.all(color: Colors.white.withValues(alpha: 0.1)),
+          borderRadius: BorderRadius.circular(8),
+        ),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text(
+                text ?? placeholder,
+                style: TextStyle(
+                  fontSize: 14,
+                  color: text != null
+                      ? Colors.white
+                      : Colors.white.withValues(alpha: 0.28),
+                ),
+              ),
+            ),
+            if (onClear != null)
+              InkWell(
+                onTap: onClear,
+                child: Icon(
+                  Icons.clear,
+                  size: 16,
+                  color: Colors.white.withValues(alpha: 0.4),
+                ),
+              ),
           ],
         ),
       ),
     );
   }
+}
 
-  // ── Passo 5: Roteiro ─────────────────────────────────────────────────
+class _EmptyBox extends StatelessWidget {
+  const _EmptyBox({
+    required this.icon,
+    required this.message,
+    this.actionLabel,
+    this.onAction,
+  });
 
-  Widget _buildTimelineTab() {
-    final sorted = [..._timeline]..sort(EventTimelineItem.compare);
-    return ListView(
-      padding: const EdgeInsets.all(16),
-      children: [
-        for (final item in sorted)
-          Card(
-            margin: const EdgeInsets.only(bottom: 8),
-            child: ListTile(
-              leading: Text(item.timeLabel),
-              title: Text(item.title),
-              trailing: IconButton(
-                icon: const Icon(Icons.close),
-                onPressed: () => setState(() => _timeline.remove(item)),
-              ),
+  final IconData icon;
+  final String message;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 24),
+      decoration: _cardDecoration,
+      child: Column(
+        children: [
+          Icon(icon, size: 32, color: Colors.white.withValues(alpha: 0.15)),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: TextStyle(
+              fontSize: 13,
+              color: Colors.white.withValues(alpha: 0.4),
             ),
           ),
-        const SizedBox(height: 8),
-        Row(
-          children: [
+          if (actionLabel != null) ...[
+            const SizedBox(height: 12),
             OutlinedButton(
-              onPressed: () async {
-                final picked = await showTimePicker(
-                  context: context,
-                  initialTime: _newTimelineTime,
-                );
-                if (picked != null) setState(() => _newTimelineTime = picked);
-              },
-              child: Text(_newTimelineTime.format(context)),
+              style: _ghostButtonStyle,
+              onPressed: onAction,
+              child: Text(actionLabel!),
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _timelineTitleController,
-                decoration: const InputDecoration(
-                  labelText: 'Título (ex: Devocional)',
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _MinistryCheckRow extends StatelessWidget {
+  const _MinistryCheckRow({
+    required this.ministry,
+    required this.checked,
+    required this.showDivider,
+    required this.onToggle,
+  });
+
+  final Ministry ministry;
+  final bool checked;
+  final bool showDivider;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = hexToColor(ministry.color);
+    return InkWell(
+      onTap: onToggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: BoxDecoration(
+          color: checked
+              ? Colors.white.withValues(alpha: 0.07)
+              : Colors.transparent,
+          border: showDivider
+              ? Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                )
+              : null,
+        ),
+        child: Row(
+          children: [
+            Checkbox(value: checked, onChanged: (_) => onToggle()),
+            const SizedBox(width: 4),
+            Container(
+              width: 36,
+              height: 36,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.1),
+                border: Border.all(color: color.withValues(alpha: 0.19)),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                ministry.name.isNotEmpty ? ministry.name[0].toUpperCase() : '?',
+                style: TextStyle(
+                  fontWeight: FontWeight.w800,
+                  color: color,
+                  fontSize: 14,
                 ),
               ),
             ),
-            IconButton(
-              icon: const Icon(Icons.add_circle_outline),
-              onPressed: () {
-                if (_timelineTitleController.text.trim().isEmpty) return;
-                setState(() {
-                  _timeline.add(
-                    EventTimelineItem(
-                      time: _newTimelineTime,
-                      title: _timelineTitleController.text.trim(),
-                    ),
-                  );
-                  _timelineTitleController.clear();
-                });
-              },
+            const SizedBox(width: 14),
+            Expanded(
+              child: Text(
+                ministry.name,
+                style: const TextStyle(
+                  fontSize: 14,
+                  fontWeight: FontWeight.w500,
+                ),
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
+            if (checked)
+              const Icon(Icons.check, size: 15, color: Color(0xFF6EE7B7)),
           ],
         ),
-      ],
+      ),
+    );
+  }
+}
+
+class _MinistryMembersCard extends ConsumerWidget {
+  const _MinistryMembersCard({
+    required this.ministry,
+    required this.assigned,
+    required this.onToggleMember,
+    required this.onToggleFunction,
+  });
+
+  final Ministry ministry;
+  final List<EventScheduleAssignment> assigned;
+  final void Function(String userId) onToggleMember;
+  final void Function(String userId, String fn) onToggleFunction;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final membersAsync = ref.watch(ministryMembersProvider(ministry.id));
+    final color = hexToColor(ministry.color);
+    final assignedIds = assigned.map((a) => a.userId).toSet();
+
+    return Container(
+      decoration: _cardDecoration,
+      clipBehavior: Clip.antiAlias,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.03),
+              border: Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+              ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 26,
+                  height: 26,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: color.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(7),
+                  ),
+                  child: Text(
+                    ministry.name.isNotEmpty
+                        ? ministry.name[0].toUpperCase()
+                        : '?',
+                    style: TextStyle(
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                      fontSize: 11,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    ministry.name,
+                    style: const TextStyle(
+                      fontWeight: FontWeight.w600,
+                      fontSize: 13,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                if (assigned.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withValues(alpha: 0.1),
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${assigned.length}',
+                      style: const TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+          ),
+          membersAsync.when(
+            data: (members) {
+              if (members.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Text(
+                    'Nenhum membro neste ministério. Adiciona pessoas ao ministério primeiro.',
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.white.withValues(alpha: 0.3),
+                    ),
+                  ),
+                );
+              }
+              return Column(
+                children: [
+                  for (final member in members)
+                    _MemberCheckRow(
+                      member: member,
+                      checked: assignedIds.contains(member.userId),
+                      functions: assigned
+                          .firstWhere(
+                            (a) => a.userId == member.userId,
+                            orElse: () => const EventScheduleAssignment(
+                              userId: '',
+                              functions: [],
+                            ),
+                          )
+                          .functions,
+                      onToggle: () => onToggleMember(member.userId),
+                      onToggleFunction: (fn) =>
+                          onToggleFunction(member.userId, fn),
+                    ),
+                ],
+              );
+            },
+            loading: () => const Padding(
+              padding: EdgeInsets.all(14),
+              child: LinearProgressIndicator(),
+            ),
+            error: (error, _) => Padding(
+              padding: const EdgeInsets.all(14),
+              child: Text('Erro: $error'),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MemberCheckRow extends StatelessWidget {
+  const _MemberCheckRow({
+    required this.member,
+    required this.checked,
+    required this.functions,
+    required this.onToggle,
+    required this.onToggleFunction,
+  });
+
+  final MinistryMember member;
+  final bool checked;
+  final List<String> functions;
+  final VoidCallback onToggle;
+  final ValueChanged<String> onToggleFunction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          top: BorderSide(color: Colors.white.withValues(alpha: 0.04)),
+        ),
+      ),
+      child: Column(
+        children: [
+          InkWell(
+            onTap: onToggle,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              color: checked
+                  ? Colors.white.withValues(alpha: 0.04)
+                  : Colors.transparent,
+              child: Row(
+                children: [
+                  Checkbox(value: checked, onChanged: (_) => onToggle()),
+                  CircleAvatar(
+                    radius: 12,
+                    backgroundColor: Colors.white.withValues(alpha: 0.1),
+                    backgroundImage: member.avatarUrl != null
+                        ? NetworkImage(member.avatarUrl!)
+                        : null,
+                    child: member.avatarUrl == null
+                        ? Text(
+                            member.fullName.isNotEmpty
+                                ? member.fullName[0].toUpperCase()
+                                : '?',
+                            style: const TextStyle(fontSize: 10),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      member.fullName,
+                      style: const TextStyle(fontSize: 13),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                  if (checked && functions.isNotEmpty)
+                    Text(
+                      '${functions.length} fn',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                    ),
+                ],
+              ),
+            ),
+          ),
+          if (checked)
+            Padding(
+              padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+              child: member.functions.isEmpty
+                  ? Text(
+                      'Esta pessoa não tem funções neste ministério.',
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.3),
+                      ),
+                    )
+                  : Column(
+                      children: [
+                        for (var i = 0; i < member.functions.length; i += 2)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 2),
+                            child: Row(
+                              children: [
+                                Expanded(
+                                  child: _FunctionCheck(
+                                    fn: member.functions[i],
+                                    checked: functions.contains(
+                                      member.functions[i],
+                                    ),
+                                    onToggle: () =>
+                                        onToggleFunction(member.functions[i]),
+                                  ),
+                                ),
+                                if (i + 1 < member.functions.length)
+                                  Expanded(
+                                    child: _FunctionCheck(
+                                      fn: member.functions[i + 1],
+                                      checked: functions.contains(
+                                        member.functions[i + 1],
+                                      ),
+                                      onToggle: () => onToggleFunction(
+                                        member.functions[i + 1],
+                                      ),
+                                    ),
+                                  )
+                                else
+                                  const Spacer(),
+                              ],
+                            ),
+                          ),
+                      ],
+                    ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _FunctionCheck extends StatelessWidget {
+  const _FunctionCheck({
+    required this.fn,
+    required this.checked,
+    required this.onToggle,
+  });
+
+  final String fn;
+  final bool checked;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onToggle,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Checkbox(
+            value: checked,
+            onChanged: (_) => onToggle(),
+            visualDensity: VisualDensity.compact,
+          ),
+          Flexible(
+            child: Text(
+              '${functionEmoji(fn)} ${functionLabel(fn)}',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.white.withValues(alpha: 0.6),
+              ),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SongCheckRow extends StatelessWidget {
+  const _SongCheckRow({
+    required this.song,
+    required this.checked,
+    required this.showDivider,
+    required this.onToggle,
+  });
+
+  final Song song;
+  final bool checked;
+  final bool showDivider;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: onToggle,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        decoration: BoxDecoration(
+          color: checked
+              ? Colors.white.withValues(alpha: 0.06)
+              : Colors.transparent,
+          border: showDivider
+              ? Border(
+                  bottom: BorderSide(
+                    color: Colors.white.withValues(alpha: 0.06),
+                  ),
+                )
+              : null,
+        ),
+        child: Row(
+          children: [
+            Checkbox(value: checked, onChanged: (_) => onToggle()),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    song.name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w500,
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                  if (song.artist != null)
+                    Text(
+                      song.artist!,
+                      style: TextStyle(
+                        fontSize: 12,
+                        color: Colors.white.withValues(alpha: 0.35),
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                ],
+              ),
+            ),
+            if (song.musicalKey != null)
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.08),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.1),
+                  ),
+                  borderRadius: BorderRadius.circular(999),
+                ),
+                child: Text(
+                  song.musicalKey!,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: Colors.white.withValues(alpha: 0.55),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _SelectedSongRow extends StatelessWidget {
+  const _SelectedSongRow({
+    required this.index,
+    required this.song,
+    required this.selectedKey,
+    required this.showDivider,
+    required this.onKeyChanged,
+    required this.onRemove,
+  });
+
+  final int index;
+  final Song song;
+  final String? selectedKey;
+  final bool showDivider;
+  final ValueChanged<String> onKeyChanged;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        border: showDivider
+            ? Border(
+                bottom: BorderSide(color: Colors.white.withValues(alpha: 0.06)),
+              )
+            : null,
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            child: Text(
+              '$index',
+              textAlign: TextAlign.right,
+              style: TextStyle(
+                fontSize: 11,
+                fontWeight: FontWeight.w700,
+                color: Colors.white.withValues(alpha: 0.2),
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  song.name,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  overflow: TextOverflow.ellipsis,
+                ),
+                if (song.artist != null)
+                  Text(
+                    song.artist!,
+                    style: TextStyle(
+                      fontSize: 11,
+                      color: Colors.white.withValues(alpha: 0.35),
+                    ),
+                    overflow: TextOverflow.ellipsis,
+                  ),
+              ],
+            ),
+          ),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 6),
+            decoration: BoxDecoration(
+              color: Colors.white.withValues(alpha: 0.06),
+              border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+              borderRadius: BorderRadius.circular(7),
+            ),
+            child: DropdownButtonHideUnderline(
+              child: DropdownButton<String>(
+                value: selectedKey,
+                hint: const Text('Tom', style: TextStyle(fontSize: 12)),
+                isDense: true,
+                dropdownColor: const Color(0xFF1A1A20),
+                style: const TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600,
+                  color: Colors.white,
+                ),
+                items: [
+                  for (final key in songKeys)
+                    DropdownMenuItem(value: key, child: Text(key)),
+                ],
+                onChanged: (value) {
+                  if (value != null) onKeyChanged(value);
+                },
+              ),
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, size: 15),
+            color: Colors.white.withValues(alpha: 0.3),
+            onPressed: onRemove,
+          ),
+        ],
+      ),
     );
   }
 }

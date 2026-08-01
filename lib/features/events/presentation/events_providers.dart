@@ -1,4 +1,5 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../../../shared/domain/event.dart';
 import '../../../shared/state/refresh_tick.dart';
@@ -14,6 +15,15 @@ final eventsListProvider = FutureProvider.family<List<Event>, String>((
 ) {
   ref.watch(refreshTickProvider);
   return ref.watch(eventsRepositoryProvider).fetchEvents(orgId);
+});
+
+/// IDs dos eventos onde o utilizador autenticado está escalado — usado para
+/// restringir o separador Escalas a membros comuns às suas próprias escalas.
+final myScheduledEventIdsProvider = FutureProvider<Set<String>>((ref) async {
+  ref.watch(refreshTickProvider);
+  final userId = Supabase.instance.client.auth.currentUser?.id;
+  if (userId == null) return {};
+  return ref.watch(eventsRepositoryProvider).scheduledEventIds(userId);
 });
 
 final eventMinistriesProvider =

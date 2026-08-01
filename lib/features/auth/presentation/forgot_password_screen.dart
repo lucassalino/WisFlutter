@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import '../../../shared/widgets/auth_scaffold.dart';
+import '../../../shared/widgets/wis_logo.dart';
 import '../data/auth_repository.dart';
 
 class ForgotPasswordScreen extends ConsumerStatefulWidget {
@@ -49,71 +51,81 @@ class _ForgotPasswordScreenState extends ConsumerState<ForgotPasswordScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Recuperar password')),
-      body: SafeArea(
-        child: Center(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: _sent
-                ? Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        'Enviámos um link para ${_emailController.text.trim()}. '
-                        'Abre-o para definires uma nova password.',
-                        textAlign: TextAlign.center,
-                      ),
-                    ],
-                  )
-                : Form(
-                    key: _formKey,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        const Text(
-                          'Introduz o teu email e enviamos-te um link para definires uma nova password.',
-                        ),
-                        const SizedBox(height: 16),
-                        TextFormField(
-                          controller: _emailController,
-                          keyboardType: TextInputType.emailAddress,
-                          decoration: const InputDecoration(labelText: 'Email'),
-                          onFieldSubmitted: (_) => _submit(),
-                          validator: (value) =>
-                              (value == null || !value.contains('@'))
-                              ? 'Introduz um email válido'
-                              : null,
-                        ),
-                        if (_error != null) ...[
-                          const SizedBox(height: 8),
-                          Text(
-                            _error!,
-                            style: TextStyle(
-                              color: Theme.of(context).colorScheme.error,
-                            ),
-                          ),
-                        ],
-                        const SizedBox(height: 24),
-                        ElevatedButton(
-                          onPressed: _submitting ? null : _submit,
-                          child: _submitting
-                              ? const SizedBox(
-                                  height: 20,
-                                  width: 20,
-                                  child: CircularProgressIndicator(
-                                    strokeWidth: 2,
-                                  ),
-                                )
-                              : const Text('Enviar link'),
-                        ),
-                      ],
-                    ),
+    return AuthScaffold(
+      showBackButton: true,
+      child: _sent
+          ? Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const WisLogo(size: 72),
+                const SizedBox(height: 20),
+                Text(
+                  'Enviámos um link para ${_emailController.text.trim()}. '
+                  'Abre-o para definires uma nova password.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+                ),
+              ],
+            )
+          : Form(
+              key: _formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  const Center(child: WisLogo(size: 72)),
+                  const SizedBox(height: 20),
+                  const Text(
+                    'Recuperar password',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
                   ),
-          ),
-        ),
-      ),
+                  const SizedBox(height: 6),
+                  Text(
+                    'Introduz o teu email e enviamos-te um link para definires uma nova password.',
+                    textAlign: TextAlign.center,
+                    style: TextStyle(color: Colors.white.withValues(alpha: 0.55)),
+                  ),
+                  const SizedBox(height: 28),
+                  TextFormField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Email',
+                      hintText: 'email@exemplo.com',
+                    ),
+                    onFieldSubmitted: (_) => _submit(),
+                    validator: (value) =>
+                        (value == null || !value.contains('@'))
+                        ? 'Introduz um email válido'
+                        : null,
+                  ),
+                  if (_error != null) ...[
+                    const SizedBox(height: 8),
+                    Text(
+                      _error!,
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
+                      ),
+                    ),
+                  ],
+                  const SizedBox(height: 24),
+                  ElevatedButton(
+                    onPressed: _submitting ? null : _submit,
+                    child: _submitting
+                        ? const SizedBox(
+                            height: 20,
+                            width: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              color: Colors.black,
+                            ),
+                          )
+                        : const Text('Enviar link'),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 }

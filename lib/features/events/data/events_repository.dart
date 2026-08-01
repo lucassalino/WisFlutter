@@ -129,7 +129,7 @@ class EventsRepository {
         .toList();
 
     if (!isAdmin) {
-      final scheduledIds = await _scheduledEventIds(userId);
+      final scheduledIds = await scheduledEventIds(userId);
       events = events
           .where((e) => e.isPublished || scheduledIds.contains(e.id))
           .toList();
@@ -137,7 +137,8 @@ class EventsRepository {
     return events;
   }
 
-  Future<Set<String>> _scheduledEventIds(String userId) async {
+  /// IDs dos eventos onde [userId] está escalado em algum ministério.
+  Future<Set<String>> scheduledEventIds(String userId) async {
     final schedules = await _client
         .from('event_schedules')
         .select('event_ministry_id')
