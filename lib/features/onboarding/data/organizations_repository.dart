@@ -1,5 +1,3 @@
-import 'dart:math';
-
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -39,27 +37,24 @@ class OrganizationsRepository {
   }
 
   /// Cria uma organização nova e torna o utilizador atual o seu admin.
-  /// RLS permite a qualquer utilizador autenticado inserir em `organizations`,
-  /// e inserir a sua própria linha em `organization_members` — sem precisar
-  /// de nenhum backend privilegiado.
+  ///
+  /// Uma organização recém-criada ainda não tem nenhum admin, por isso o
+  /// RLS de `organization_members` bloqueia sempre um insert direto com
+  /// `role = 'admin'` (só permite auto-inserção com `role = 'member'`, ou
+  /// inserção por quem já é admin — nenhum dos dois se aplica aqui). A app
+  /// web resolve isto com um cliente `service_role` num Server Action; a
+  /// Flutter fala diretamente com o Supabase, por isso usa a função
+  /// `create_organization` (SECURITY DEFINER) para fazer os dois inserts
+  /// de forma atómica e seguindo o mesmo padrão de `resolve_invite_code`.
   Future<Organization> createOrganization(String name) async {
-    final userId = _requireUserId();
-    final inviteCode = _generateInviteCode();
-
-    final orgRow = await _client
-        .from('organizations')
-        .insert({'name': name, 'invite_code': inviteCode})
-        .select()
+    // A função devolve um único registo de `organizations`, mas o
+    // PostgREST embrulha resultados de funções compostas num array —
+    // `.single()` pede o cabeçalho que faz o Postgrest desembrulhar para
+    // um objeto simples (e falhar claramente se não vier exatamente 1 linha).
+    final row = await _client
+        .rpc('create_organization', params: {'p_name': name})
         .single();
-    final organization = Organization.fromMap(orgRow);
-
-    await _client.from('organization_members').insert({
-      'org_id': organization.id,
-      'user_id': userId,
-      'role': 'admin',
-    });
-
-    return organization;
+    return Organization.fromMap(row);
   }
 
   /// Entra numa organização através do código de convite.
@@ -167,15 +162,5 @@ class OrganizationsRepository {
     final userId = _client.auth.currentUser?.id;
     if (userId == null) throw StateError('Sessão expirada');
     return userId;
-  }
-
-  static const _codeChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
-
-  String _generateInviteCode() {
-    final random = Random.secure();
-    return List.generate(
-      6,
-      (_) => _codeChars[random.nextInt(_codeChars.length)],
-    ).join();
   }
 }
